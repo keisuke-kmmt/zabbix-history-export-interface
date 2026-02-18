@@ -82,6 +82,45 @@ npx http-server
 - モダンなWebブラウザ（Chrome, Firefox, Safari, Edge等）
 - Zabbix 4.0以降（API access必須）
 - インターネット接続（CORSが有効な環境）
+  - オフライン環境での使用も可能（下記のオフライン環境セクション参照）
+
+## オフライン環境での使用
+
+このツールはオフライン環境でも使用できます。JSZipライブラリのフォールバック機能が実装されています。
+
+### セットアップ方法
+
+1. **JSZipライブラリのダウンロード**
+   
+   オンライン環境で以下のコマンドを実行：
+   ```bash
+   # wgetを使用する場合
+   wget https://unpkg.com/jszip@3.10.1/dist/jszip.min.js -O lib/jszip.min.js
+   
+   # curlを使用する場合
+   curl https://unpkg.com/jszip@3.10.1/dist/jszip.min.js -o lib/jszip.min.js
+   ```
+   
+   または、ブラウザで https://unpkg.com/jszip@3.10.1/dist/jszip.min.js を開いて、
+   内容を `lib/jszip.min.js` として保存してください。
+
+2. **オフライン環境への配置**
+   
+   以下のファイルをオフライン環境にコピー：
+   - `index.html`
+   - `lib/jszip.min.js`
+   - `README.md`（オプション）
+
+3. **使用方法**
+   
+   オフライン環境で `index.html` をブラウザで開くだけです。
+   CDNに接続できない場合は自動的にローカルの `lib/jszip.min.js` が使用されます。
+
+### 動作の仕組み
+
+- まずCDN（https://unpkg.com）からJSZipの読み込みを試みます
+- CDNへの接続に失敗した場合、自動的に `lib/jszip.min.js` から読み込みます
+- どちらも利用できない場合は、CSVエクスポート機能使用時にエラーメッセージが表示されます
 
 ## トラブルシューティング
 

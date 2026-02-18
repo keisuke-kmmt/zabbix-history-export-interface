@@ -4,8 +4,23 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Zabbix履歴データエクスポート</title>
+    <script>
+        // CDN読み込み失敗時のフォールバック処理
+        function loadFallbackJSZip() {
+            console.warn('Failed to load JSZip from CDN, trying local fallback...');
+            var script = document.createElement('script');
+            script.src = 'lib/jszip.min.js';
+            script.onerror = function() {
+                console.error('Failed to load JSZip from both CDN and local file');
+            };
+            script.onload = function() {
+                console.log('JSZip loaded successfully from local fallback');
+            };
+            document.head.appendChild(script);
+        }
+    </script>
     <!-- JSZip library for ZIP file creation -->
-    <script src="https://unpkg.com/jszip@3.10.1/dist/jszip.min.js"></script>
+    <script src="https://unpkg.com/jszip@3.10.1/dist/jszip.min.js" onerror="loadFallbackJSZip()"></script>
     <style>
         * {
             margin: 0;
