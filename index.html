@@ -993,7 +993,7 @@
                 const view = new DataView(cdHeader.buffer);
                 
                 view.setUint32(0, 0x02014b50, true); // Central directory file header signature
-                view.setUint16(4, 20, true); // Version made by
+                view.setUint16(4, 0x033F, true); // Version made by (3.0, Unix)
                 view.setUint16(6, 20, true); // Version needed to extract
                 view.setUint16(8, 0, true); // General purpose bit flag
                 view.setUint16(10, 8, true); // Compression method
@@ -1006,8 +1006,8 @@
                 view.setUint16(30, 0, true); // Extra field length
                 view.setUint16(32, 0, true); // File comment length
                 view.setUint16(34, 0, true); // Disk number start
-                view.setUint16(36, 0, true); // Internal file attributes
-                view.setUint32(38, 0, true); // External file attributes
+                view.setUint16(36, 1, true); // Internal file attributes (text file)
+                view.setUint32(38, 0x81A40000, true); // External file attributes (Unix permissions 0644)
                 view.setUint32(42, entry.offset, true); // Relative offset of local header
                 cdHeader.set(entry.filename, 46);
                 
