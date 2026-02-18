@@ -552,7 +552,7 @@
                 hostSelect.multiple = true;
                 hostSelect.size = 8;
                 hostSelectInfo.textContent = 'Ctrlキー(またはCmd)を押しながらクリックで複数ホスト選択可';
-                hostSelect.onchange = null; // onchangeイベントを無効化
+                hostSelect.onchange = null; // ホスト全体モードではアイテム読み込みが不要なのでonchangeイベントを無効化
                 itemSection.classList.add('hidden');
                 timeSection.classList.remove('hidden');
                 getHistoryBtn.classList.add('hidden');
@@ -602,8 +602,14 @@
                 // 選択されたホストのすべてのアイテムを取得
                 const selectedHostIds = selectedOptions.map(opt => opt.value);
                 
+                // ホストIDと名前のマップを作成（パフォーマンス改善）
+                const hostNameMap = new Map();
+                selectedOptions.forEach(opt => {
+                    hostNameMap.set(opt.value, opt.textContent);
+                });
+                
                 for (const hostId of selectedHostIds) {
-                    const hostName = selectedOptions.find(opt => opt.value === hostId).textContent;
+                    const hostName = hostNameMap.get(hostId);
                     
                     // ホストのアイテムを取得
                     const items = await callZabbixAPI('item.get', {
@@ -615,9 +621,9 @@
 
                     showStatus('timeStatus', `${hostName} の履歴データ取得中... (${items.length}個のアイテム)`, 'info');
 
-                    // 各アイテムの履歴データを取得
-                    for (const item of items) {
-                        const history = await callZabbixAPI('history.get', {
+                    // 各アイテムの履歴データを並列取得（パフォーマンス改善）
+                    const historyPromises = items.map(item => 
+                        callZabbixAPI('history.get', {
                             output: 'extend',
                             history: parseInt(item.value_type),
                             itemids: item.itemid,
@@ -625,8 +631,12 @@
                             sortorder: 'ASC',
                             time_from: timeFromUnix,
                             time_till: timeTillUnix
-                        });
+                        }).then(history => ({ item, history }))
+                    );
 
+                    const results = await Promise.all(historyPromises);
+
+                    results.forEach(({ item, history }) => {
                         history.forEach(record => {
                             historyData.push({
                                 hostName: hostName,
@@ -638,6 +648,8 @@
                                 value: record.value,
                                 ns: record.ns
                             });
+                        });
+                    });
                         });
                     }
                 }
