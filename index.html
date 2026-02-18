@@ -922,13 +922,35 @@
                     }
                 });
 
-                // ファイル名を生成（アイテム名を含む、ホスト名は除外）
+                // ファイル名を生成: {ホスト名}_{アイテム名}_{開始日時}-{終了日時}.csv
+                const safeHostName = (group.hostName || 'unknown').replace(/[^a-zA-Z0-9\u3040-\u309F\u30A0-\u30FF\u4E00-\u9FAF]/g, '_');
                 const safeItemName = group.itemName.replace(/[^a-zA-Z0-9\u3040-\u309F\u30A0-\u30FF\u4E00-\u9FAF]/g, '_');
-                const safeItemKey = (group.itemKey || '').replace(/[^a-zA-Z0-9\u3040-\u309F\u30A0-\u30FF\u4E00-\u9FAF]/g, '_');
-                // ホスト全体モードの場合はアイテムキーも含めて一意性を確保
-                const filename = exportMode === 'host' && safeItemKey 
-                    ? `${safeItemName}_${safeItemKey}.csv` 
-                    : `${safeItemName}.csv`;
+                
+                // データから開始日時と終了日時を取得
+                let startTime = 'unknown';
+                let endTime = 'unknown';
+                if (group.data.length > 0) {
+                    const timestamps = group.data.map(d => d.clock);
+                    const minTimestamp = Math.min(...timestamps);
+                    const maxTimestamp = Math.max(...timestamps);
+                    
+                    // YYYYMMDD_HHMMSS形式にフォーマット
+                    const formatDateTime = (timestamp) => {
+                        const date = new Date(timestamp * 1000);
+                        const year = date.getFullYear();
+                        const month = String(date.getMonth() + 1).padStart(2, '0');
+                        const day = String(date.getDate()).padStart(2, '0');
+                        const hours = String(date.getHours()).padStart(2, '0');
+                        const minutes = String(date.getMinutes()).padStart(2, '0');
+                        const seconds = String(date.getSeconds()).padStart(2, '0');
+                        return `${year}${month}${day}_${hours}${minutes}${seconds}`;
+                    };
+                    
+                    startTime = formatDateTime(minTimestamp);
+                    endTime = formatDateTime(maxTimestamp);
+                }
+                
+                const filename = `${safeHostName}_${safeItemName}_${startTime}-${endTime}.csv`;
 
                 files.push({
                     name: filename,
