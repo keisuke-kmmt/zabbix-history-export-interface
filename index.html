@@ -252,7 +252,7 @@
                 <h2>1. Zabbix接続設定</h2>
                 <div class="form-group">
                     <label for="zabbixUrl">Zabbix URL:</label>
-                    <input type="text" id="zabbixUrl" placeholder="https://your-zabbix-server/api_jsonrpc.php" value="https://your-zabbix-server/api_jsonrpc.php">
+                    <input type="text" id="zabbixUrl" placeholder="https://your-zabbix-server/api_jsonrpc.php">
                     <div class="info-text">例: https://zabbix.example.com/api_jsonrpc.php</div>
                 </div>
                 <div class="form-group">
@@ -329,6 +329,7 @@
         let historyData = [];
         let currentHosts = [];
         let currentItems = [];
+        let apiRequestCounter = 0;
 
         // Initialize datetime inputs with default values (last 24 hours)
         window.onload = function() {
@@ -367,7 +368,7 @@
                 jsonrpc: '2.0',
                 method: method,
                 params: params,
-                id: Date.now()
+                id: ++apiRequestCounter
             };
 
             if (authToken && method !== 'user.login') {
@@ -546,6 +547,11 @@
             const timeFromUnix = Math.floor(new Date(timeFrom).getTime() / 1000);
             const timeTillUnix = Math.floor(new Date(timeTill).getTime() / 1000);
 
+            if (timeFromUnix >= timeTillUnix) {
+                showStatus('timeStatus', '開始時刻は終了時刻より前である必要があります', 'error');
+                return;
+            }
+
             showStatus('timeStatus', '履歴データ取得中...', 'info');
             historyData = [];
 
@@ -616,7 +622,7 @@
 
         function escapeHtml(text) {
             const div = document.createElement('div');
-            div.textContent = text;
+            div.textContent = String(text || '');
             return div.innerHTML;
         }
 
@@ -626,7 +632,7 @@
                 return;
             }
 
-            let csv = '\uFEFF'; // UTF-8 BOM
+            let csv = '\uFEFF'; // UTF-8 BOM for Excel compatibility with Japanese characters
             csv += 'アイテム,タイムスタンプ,値\n';
 
             historyData.forEach(record => {
