@@ -79,50 +79,57 @@ npx http-server
 
 ## 要件
 
-- モダンなWebブラウザ（Chrome, Firefox, Safari, Edge等）
+- モダンなWebブラウザ（CompressionStream API対応）
+  - Chrome 80+
+  - Edge 80+
+  - Safari 16.4+
+  - Firefox 113+
 - Zabbix 4.0以降（API access必須）
 - インターネット接続（CORSが有効な環境）
-  - オフライン環境での使用も可能（下記のオフライン環境セクション参照）
+
+### ブラウザ互換性について
+
+このツールはブラウザネイティブのCompressionStream APIを使用してZIPファイルを生成します。
+外部ライブラリに依存しないため、完全にスタンドアロンで動作し、オフライン環境でも使用できます。
+
+CompressionStream APIは比較的新しいAPIのため、古いブラウザでは動作しません。
+上記の要件を満たすブラウザでご使用ください。
 
 ## オフライン環境での使用
 
-このツールはオフライン環境でも使用できます。JSZipライブラリのフォールバック機能が実装されています。
+このツールは外部依存がないため、オフライン環境でも簡単に使用できます。
 
 ### セットアップ方法
 
-1. **JSZipライブラリのダウンロード**
+1. **ファイルのダウンロード**
    
-   オンライン環境で以下のコマンドを実行：
-   ```bash
-   # wgetを使用する場合
-   wget https://unpkg.com/jszip@3.10.1/dist/jszip.min.js -O lib/jszip.min.js
-   
-   # curlを使用する場合
-   curl https://unpkg.com/jszip@3.10.1/dist/jszip.min.js -o lib/jszip.min.js
-   ```
-   
-   または、ブラウザで https://unpkg.com/jszip@3.10.1/dist/jszip.min.js を開いて、
-   内容を `lib/jszip.min.js` として保存してください。
+   `index.html` をダウンロード（GitHubから、またはGitクローン）
 
 2. **オフライン環境への配置**
    
-   以下のファイルをオフライン環境にコピー：
-   - `index.html`
-   - `lib/jszip.min.js`
-   - `README.md`（オプション）
+   `index.html` をオフライン環境にコピー
 
 3. **使用方法**
    
    オフライン環境で `index.html` をブラウザで開くだけです。
-   CDNに接続できない場合は自動的にローカルの `lib/jszip.min.js` が使用されます。
+   外部ライブラリは不要です。
 
 ### 動作の仕組み
 
-- まずCDN（https://unpkg.com）からJSZipの読み込みを試みます
-- CDNへの接続に失敗した場合、自動的に `lib/jszip.min.js` から読み込みます
-- どちらも利用できない場合は、CSVエクスポート機能使用時にエラーメッセージが表示されます
+- すべての機能がブラウザネイティブAPIで実装されています
+- ZIP生成にCompressionStream APIを使用
+- 外部CDNやライブラリへの依存がありません
+- インターネット接続なしで完全に動作します（Zabbix APIへの接続は必要）
 
 ## トラブルシューティング
+
+### 「CompressionStream APIをサポートしていません」エラー
+
+このエラーが表示される場合、ブラウザが古い可能性があります：
+
+- Chrome/Edge: バージョン80以上に更新してください
+- Safari: バージョン16.4以上に更新してください  
+- Firefox: バージョン113以上に更新してください
 
 ### 「Incorrect user name or password」エラー
 
