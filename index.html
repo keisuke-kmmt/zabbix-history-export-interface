@@ -1,0 +1,664 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Zabbix History Export Interface</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 10px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            overflow: hidden;
+        }
+
+        header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 30px;
+            text-align: center;
+        }
+
+        header h1 {
+            font-size: 2em;
+            margin-bottom: 10px;
+        }
+
+        header p {
+            opacity: 0.9;
+        }
+
+        .content {
+            padding: 30px;
+        }
+
+        .section {
+            margin-bottom: 30px;
+            padding: 20px;
+            border: 1px solid #e0e0e0;
+            border-radius: 8px;
+            background: #f9f9f9;
+        }
+
+        .section h2 {
+            color: #667eea;
+            margin-bottom: 20px;
+            font-size: 1.5em;
+            border-bottom: 2px solid #667eea;
+            padding-bottom: 10px;
+        }
+
+        .form-group {
+            margin-bottom: 15px;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: 600;
+            color: #333;
+        }
+
+        input[type="text"],
+        input[type="password"],
+        input[type="datetime-local"],
+        select {
+            width: 100%;
+            padding: 10px;
+            border: 2px solid #ddd;
+            border-radius: 5px;
+            font-size: 14px;
+            transition: border-color 0.3s;
+        }
+
+        input[type="text"]:focus,
+        input[type="password"]:focus,
+        input[type="datetime-local"]:focus,
+        select:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        button {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 12px 30px;
+            border-radius: 5px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: transform 0.2s, box-shadow 0.2s;
+            margin-right: 10px;
+            margin-top: 10px;
+        }
+
+        button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+        }
+
+        button:active {
+            transform: translateY(0);
+        }
+
+        button:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .status {
+            padding: 10px;
+            border-radius: 5px;
+            margin-top: 10px;
+            display: none;
+        }
+
+        .status.success {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+
+        .status.error {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+
+        .status.info {
+            background: #d1ecf1;
+            color: #0c5460;
+            border: 1px solid #bee5eb;
+        }
+
+        .hidden {
+            display: none;
+        }
+
+        .data-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+            overflow-x: auto;
+            display: block;
+        }
+
+        .data-table table {
+            width: 100%;
+            min-width: 600px;
+        }
+
+        .data-table th,
+        .data-table td {
+            padding: 12px;
+            text-align: left;
+            border-bottom: 1px solid #ddd;
+        }
+
+        .data-table th {
+            background: #667eea;
+            color: white;
+            font-weight: 600;
+            position: sticky;
+            top: 0;
+        }
+
+        .data-table tr:hover {
+            background: #f5f5f5;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 20px;
+            color: #667eea;
+            font-size: 1.2em;
+        }
+
+        .loading::after {
+            content: '...';
+            animation: dots 1.5s steps(4, end) infinite;
+        }
+
+        @keyframes dots {
+            0%, 20% { content: '.'; }
+            40% { content: '..'; }
+            60%, 100% { content: '...'; }
+        }
+
+        select[multiple] {
+            height: 150px;
+        }
+
+        .info-text {
+            font-size: 0.9em;
+            color: #666;
+            margin-top: 5px;
+            font-style: italic;
+        }
+
+        .button-group {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+
+        @media (max-width: 768px) {
+            .content {
+                padding: 15px;
+            }
+
+            header h1 {
+                font-size: 1.5em;
+            }
+
+            .button-group {
+                flex-direction: column;
+            }
+
+            button {
+                width: 100%;
+                margin-right: 0;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>📊 Zabbix History Export Interface</h1>
+            <p>Zabbix APIを使用してヒストリーデータをエクスポート</p>
+        </header>
+
+        <div class="content">
+            <!-- Connection Section -->
+            <div class="section">
+                <h2>1. Zabbix接続設定</h2>
+                <div class="form-group">
+                    <label for="zabbixUrl">Zabbix URL:</label>
+                    <input type="text" id="zabbixUrl" placeholder="https://your-zabbix-server/api_jsonrpc.php" value="https://your-zabbix-server/api_jsonrpc.php">
+                    <div class="info-text">例: https://zabbix.example.com/api_jsonrpc.php</div>
+                </div>
+                <div class="form-group">
+                    <label for="username">ユーザー名:</label>
+                    <input type="text" id="username" placeholder="admin">
+                </div>
+                <div class="form-group">
+                    <label for="password">パスワード:</label>
+                    <input type="password" id="password" placeholder="パスワード">
+                </div>
+                <button id="connectBtn" onclick="connectToZabbix()">接続</button>
+                <button id="disconnectBtn" onclick="disconnect()" class="hidden">切断</button>
+                <div id="connectionStatus" class="status"></div>
+            </div>
+
+            <!-- Host Selection Section -->
+            <div id="hostSection" class="section hidden">
+                <h2>2. ホスト選択</h2>
+                <div class="form-group">
+                    <label for="hostSelect">ホスト:</label>
+                    <select id="hostSelect" onchange="loadItems()">
+                        <option value="">ホストを選択してください</option>
+                    </select>
+                </div>
+                <div id="hostStatus" class="status"></div>
+            </div>
+
+            <!-- Item Selection Section -->
+            <div id="itemSection" class="section hidden">
+                <h2>3. アイテム選択</h2>
+                <div class="form-group">
+                    <label for="itemSelect">アイテム (複数選択可):</label>
+                    <select id="itemSelect" multiple>
+                        <option value="">アイテムを選択してください</option>
+                    </select>
+                    <div class="info-text">Ctrlキー(またはCmd)を押しながらクリックで複数選択</div>
+                </div>
+                <div id="itemStatus" class="status"></div>
+            </div>
+
+            <!-- Time Range Section -->
+            <div id="timeSection" class="section hidden">
+                <h2>4. 時間範囲選択</h2>
+                <div class="form-group">
+                    <label for="timeFrom">開始時刻:</label>
+                    <input type="datetime-local" id="timeFrom">
+                </div>
+                <div class="form-group">
+                    <label for="timeTill">終了時刻:</label>
+                    <input type="datetime-local" id="timeTill">
+                </div>
+                <div class="button-group">
+                    <button onclick="getHistory()">履歴データ取得</button>
+                </div>
+                <div id="timeStatus" class="status"></div>
+            </div>
+
+            <!-- Results Section -->
+            <div id="resultsSection" class="section hidden">
+                <h2>5. 結果</h2>
+                <div class="button-group">
+                    <button onclick="exportToCSV()">CSVエクスポート</button>
+                    <button onclick="exportToJSON()">JSONエクスポート</button>
+                </div>
+                <div id="resultsStatus" class="status"></div>
+                <div id="resultsTable" class="data-table"></div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Global variables
+        let authToken = null;
+        let historyData = [];
+        let currentHosts = [];
+        let currentItems = [];
+
+        // Initialize datetime inputs with default values (last 24 hours)
+        window.onload = function() {
+            const now = new Date();
+            const yesterday = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+            
+            document.getElementById('timeTill').value = formatDateTimeLocal(now);
+            document.getElementById('timeFrom').value = formatDateTimeLocal(yesterday);
+        };
+
+        function formatDateTimeLocal(date) {
+            const year = date.getFullYear();
+            const month = String(date.getMonth() + 1).padStart(2, '0');
+            const day = String(date.getDate()).padStart(2, '0');
+            const hours = String(date.getHours()).padStart(2, '0');
+            const minutes = String(date.getMinutes()).padStart(2, '0');
+            return `${year}-${month}-${day}T${hours}:${minutes}`;
+        }
+
+        function showStatus(elementId, message, type) {
+            const statusElement = document.getElementById(elementId);
+            statusElement.textContent = message;
+            statusElement.className = `status ${type}`;
+            statusElement.style.display = 'block';
+        }
+
+        function hideStatus(elementId) {
+            const statusElement = document.getElementById(elementId);
+            statusElement.style.display = 'none';
+        }
+
+        async function callZabbixAPI(method, params) {
+            const url = document.getElementById('zabbixUrl').value;
+            
+            const requestBody = {
+                jsonrpc: '2.0',
+                method: method,
+                params: params,
+                id: Date.now()
+            };
+
+            if (authToken && method !== 'user.login') {
+                requestBody.auth = authToken;
+            }
+
+            try {
+                const response = await fetch(url, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify(requestBody)
+                });
+
+                const data = await response.json();
+
+                if (data.error) {
+                    throw new Error(data.error.data || data.error.message);
+                }
+
+                return data.result;
+            } catch (error) {
+                console.error('API Error:', error);
+                throw error;
+            }
+        }
+
+        async function connectToZabbix() {
+            const url = document.getElementById('zabbixUrl').value;
+            const username = document.getElementById('username').value;
+            const password = document.getElementById('password').value;
+
+            if (!url || !username || !password) {
+                showStatus('connectionStatus', 'すべてのフィールドを入力してください', 'error');
+                return;
+            }
+
+            showStatus('connectionStatus', '接続中...', 'info');
+
+            try {
+                authToken = await callZabbixAPI('user.login', {
+                    user: username,
+                    password: password
+                });
+
+                showStatus('connectionStatus', '接続成功！', 'success');
+                
+                // Update UI
+                document.getElementById('connectBtn').classList.add('hidden');
+                document.getElementById('disconnectBtn').classList.remove('hidden');
+                document.getElementById('zabbixUrl').disabled = true;
+                document.getElementById('username').disabled = true;
+                document.getElementById('password').disabled = true;
+
+                // Show next sections
+                document.getElementById('hostSection').classList.remove('hidden');
+                
+                // Load hosts
+                await loadHosts();
+
+            } catch (error) {
+                showStatus('connectionStatus', `接続エラー: ${error.message}`, 'error');
+                authToken = null;
+            }
+        }
+
+        function disconnect() {
+            authToken = null;
+            historyData = [];
+            currentHosts = [];
+            currentItems = [];
+
+            // Reset UI
+            document.getElementById('connectBtn').classList.remove('hidden');
+            document.getElementById('disconnectBtn').classList.add('hidden');
+            document.getElementById('zabbixUrl').disabled = false;
+            document.getElementById('username').disabled = false;
+            document.getElementById('password').disabled = false;
+
+            // Hide sections
+            document.getElementById('hostSection').classList.add('hidden');
+            document.getElementById('itemSection').classList.add('hidden');
+            document.getElementById('timeSection').classList.add('hidden');
+            document.getElementById('resultsSection').classList.add('hidden');
+
+            // Clear selections
+            document.getElementById('hostSelect').innerHTML = '<option value="">ホストを選択してください</option>';
+            document.getElementById('itemSelect').innerHTML = '<option value="">アイテムを選択してください</option>';
+            document.getElementById('resultsTable').innerHTML = '';
+
+            showStatus('connectionStatus', '切断しました', 'info');
+        }
+
+        async function loadHosts() {
+            showStatus('hostStatus', 'ホスト読み込み中...', 'info');
+
+            try {
+                currentHosts = await callZabbixAPI('host.get', {
+                    output: ['hostid', 'host', 'name'],
+                    sortfield: 'name'
+                });
+
+                const hostSelect = document.getElementById('hostSelect');
+                hostSelect.innerHTML = '<option value="">ホストを選択してください</option>';
+
+                currentHosts.forEach(host => {
+                    const option = document.createElement('option');
+                    option.value = host.hostid;
+                    option.textContent = `${host.name} (${host.host})`;
+                    hostSelect.appendChild(option);
+                });
+
+                showStatus('hostStatus', `${currentHosts.length}個のホストを読み込みました`, 'success');
+
+            } catch (error) {
+                showStatus('hostStatus', `ホスト読み込みエラー: ${error.message}`, 'error');
+            }
+        }
+
+        async function loadItems() {
+            const hostId = document.getElementById('hostSelect').value;
+
+            if (!hostId) {
+                document.getElementById('itemSection').classList.add('hidden');
+                return;
+            }
+
+            document.getElementById('itemSection').classList.remove('hidden');
+            showStatus('itemStatus', 'アイテム読み込み中...', 'info');
+
+            try {
+                currentItems = await callZabbixAPI('item.get', {
+                    output: ['itemid', 'name', 'key_', 'value_type'],
+                    hostids: hostId,
+                    sortfield: 'name',
+                    webitems: false
+                });
+
+                const itemSelect = document.getElementById('itemSelect');
+                itemSelect.innerHTML = '';
+
+                currentItems.forEach(item => {
+                    const option = document.createElement('option');
+                    option.value = item.itemid;
+                    option.textContent = `${item.name} (${item.key_})`;
+                    option.dataset.valueType = item.value_type;
+                    itemSelect.appendChild(option);
+                });
+
+                showStatus('itemStatus', `${currentItems.length}個のアイテムを読み込みました`, 'success');
+                document.getElementById('timeSection').classList.remove('hidden');
+
+            } catch (error) {
+                showStatus('itemStatus', `アイテム読み込みエラー: ${error.message}`, 'error');
+            }
+        }
+
+        async function getHistory() {
+            const itemSelect = document.getElementById('itemSelect');
+            const selectedOptions = Array.from(itemSelect.selectedOptions);
+
+            if (selectedOptions.length === 0) {
+                showStatus('timeStatus', 'アイテムを選択してください', 'error');
+                return;
+            }
+
+            const timeFrom = document.getElementById('timeFrom').value;
+            const timeTill = document.getElementById('timeTill').value;
+
+            if (!timeFrom || !timeTill) {
+                showStatus('timeStatus', '時間範囲を指定してください', 'error');
+                return;
+            }
+
+            const timeFromUnix = Math.floor(new Date(timeFrom).getTime() / 1000);
+            const timeTillUnix = Math.floor(new Date(timeTill).getTime() / 1000);
+
+            showStatus('timeStatus', '履歴データ取得中...', 'info');
+            historyData = [];
+
+            try {
+                for (const option of selectedOptions) {
+                    const itemId = option.value;
+                    const valueType = option.dataset.valueType;
+                    const itemName = option.textContent;
+
+                    const history = await callZabbixAPI('history.get', {
+                        output: 'extend',
+                        history: parseInt(valueType),
+                        itemids: itemId,
+                        sortfield: 'clock',
+                        sortorder: 'ASC',
+                        time_from: timeFromUnix,
+                        time_till: timeTillUnix
+                    });
+
+                    history.forEach(record => {
+                        historyData.push({
+                            itemId: itemId,
+                            itemName: itemName,
+                            clock: record.clock,
+                            timestamp: new Date(record.clock * 1000).toLocaleString('ja-JP'),
+                            value: record.value,
+                            ns: record.ns
+                        });
+                    });
+                }
+
+                showStatus('timeStatus', `${historyData.length}件の履歴データを取得しました`, 'success');
+                displayResults();
+
+            } catch (error) {
+                showStatus('timeStatus', `履歴データ取得エラー: ${error.message}`, 'error');
+            }
+        }
+
+        function displayResults() {
+            const resultsSection = document.getElementById('resultsSection');
+            const resultsTable = document.getElementById('resultsTable');
+
+            if (historyData.length === 0) {
+                resultsTable.innerHTML = '<p class="info-text">データがありません</p>';
+                resultsSection.classList.remove('hidden');
+                return;
+            }
+
+            let tableHTML = '<table><thead><tr>';
+            tableHTML += '<th>アイテム</th>';
+            tableHTML += '<th>タイムスタンプ</th>';
+            tableHTML += '<th>値</th>';
+            tableHTML += '</tr></thead><tbody>';
+
+            historyData.forEach(record => {
+                tableHTML += '<tr>';
+                tableHTML += `<td>${escapeHtml(record.itemName)}</td>`;
+                tableHTML += `<td>${escapeHtml(record.timestamp)}</td>`;
+                tableHTML += `<td>${escapeHtml(record.value)}</td>`;
+                tableHTML += '</tr>';
+            });
+
+            tableHTML += '</tbody></table>';
+            resultsTable.innerHTML = tableHTML;
+            resultsSection.classList.remove('hidden');
+        }
+
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+
+        function exportToCSV() {
+            if (historyData.length === 0) {
+                showStatus('resultsStatus', 'エクスポートするデータがありません', 'error');
+                return;
+            }
+
+            let csv = '\uFEFF'; // UTF-8 BOM
+            csv += 'アイテム,タイムスタンプ,値\n';
+
+            historyData.forEach(record => {
+                csv += `"${record.itemName}","${record.timestamp}","${record.value}"\n`;
+            });
+
+            downloadFile(csv, 'zabbix-history-export.csv', 'text/csv;charset=utf-8;');
+            showStatus('resultsStatus', 'CSVファイルをダウンロードしました', 'success');
+        }
+
+        function exportToJSON() {
+            if (historyData.length === 0) {
+                showStatus('resultsStatus', 'エクスポートするデータがありません', 'error');
+                return;
+            }
+
+            const json = JSON.stringify(historyData, null, 2);
+            downloadFile(json, 'zabbix-history-export.json', 'application/json');
+            showStatus('resultsStatus', 'JSONファイルをダウンロードしました', 'success');
+        }
+
+        function downloadFile(content, filename, mimeType) {
+            const blob = new Blob([content], { type: mimeType });
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = filename;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            URL.revokeObjectURL(url);
+        }
+    </script>
+</body>
+</html>
