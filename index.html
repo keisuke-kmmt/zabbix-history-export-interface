@@ -4,6 +4,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Zabbix履歴データエクスポート</title>
+    <!-- JSZip library for ZIP file creation -->
+    <script src="https://unpkg.com/jszip@3.10.1/dist/jszip.min.js"></script>
     <style>
         * {
             margin: 0;
@@ -807,63 +809,90 @@
             return div.innerHTML;
         }
 
-        function exportToCSV() {
+        async function exportToCSV() {
             if (historyData.length === 0) {
                 showStatus('resultsStatus', 'エクスポートするデータがありません', 'error');
                 return;
             }
 
-            // アイテムごとにデータをグループ化
-            const itemGroups = {};
-            historyData.forEach(record => {
-                const itemKey = `${record.itemId}_${record.itemName}`;
-                if (!itemGroups[itemKey]) {
-                    itemGroups[itemKey] = {
-                        itemName: record.itemName,
-                        itemKey: record.itemKey,
-                        hostName: record.hostName,
-                        data: []
-                    };
-                }
-                itemGroups[itemKey].data.push(record);
-            });
+            // JSZipが読み込まれているか確認
+            if (typeof JSZip === 'undefined') {
+                showStatus('resultsStatus', 'エラー: JSZipライブラリが読み込まれていません。ページを再読み込みしてください。', 'error');
+                console.error('JSZip library is not loaded');
+                return;
+            }
 
-            const itemCount = Object.keys(itemGroups).length;
-            let fileCount = 0;
+            showStatus('resultsStatus', 'CSVファイルを生成中...', 'info');
 
-            // アイテムごとに個別のCSVファイルを生成してダウンロード
-            Object.entries(itemGroups).forEach(([key, group], index) => {
-                let csv = '\uFEFF'; // UTF-8 BOM for Excel compatibility with Japanese characters
-                
-                // ヘッダー行
-                if (exportMode === 'host') {
-                    csv += 'ホスト,アイテム,キー,タイムスタンプ,値\n';
-                } else {
-                    csv += 'ホスト,アイテム,タイムスタンプ,値\n';
-                }
-
-                group.data.forEach(record => {
-                    if (exportMode === 'host') {
-                        csv += `"${record.hostName || ''}","${record.itemName}","${record.itemKey || ''}","${record.timestamp}","${record.value}"\n`;
-                    } else {
-                        csv += `"${record.hostName || ''}","${record.itemName}","${record.timestamp}","${record.value}"\n`;
+            try {
+                // アイテムごとにデータをグループ化
+                const itemGroups = {};
+                historyData.forEach(record => {
+                    const itemKey = `${record.itemId}_${record.itemName}`;
+                    if (!itemGroups[itemKey]) {
+                        itemGroups[itemKey] = {
+                            itemName: record.itemName,
+                            itemKey: record.itemKey,
+                            hostName: record.hostName,
+                            data: []
+                        };
                     }
+                    itemGroups[itemKey].data.push(record);
                 });
 
-                // ファイル名を生成（アイテム名を含む）
-                const safeItemName = group.itemName.replace(/[^a-zA-Z0-9\u3040-\u309F\u30A0-\u30FF\u4E00-\u9FAF]/g, '_');
-                const safeHostName = (group.hostName || 'unknown').replace(/[^a-zA-Z0-9\u3040-\u309F\u30A0-\u30FF\u4E00-\u9FAF]/g, '_');
-                const filename = `zabbix_${safeHostName}_${safeItemName}.csv`;
+                const itemCount = Object.keys(itemGroups).length;
 
-                // 少し遅延を入れて順次ダウンロード（ブラウザの制限対策）
-                setTimeout(() => {
-                    downloadFile(csv, filename, 'text/csv;charset=utf-8;');
-                    fileCount++;
-                    if (fileCount === itemCount) {
-                        showStatus('resultsStatus', `${itemCount}個のCSVファイルをダウンロードしました（アイテムごとに分割）`, 'success');
+                // JSZipインスタンスを作成
+                const zip = new JSZip();
+
+                // アイテムごとにCSVファイルを生成してZIPに追加
+                Object.entries(itemGroups).forEach(([key, group]) => {
+                    let csv = '\uFEFF'; // UTF-8 BOM for Excel compatibility with Japanese characters
+                    
+                    // ヘッダー行
+                    if (exportMode === 'host') {
+                        csv += 'ホスト,アイテム,キー,タイムスタンプ,値\n';
+                    } else {
+                        csv += 'ホスト,アイテム,タイムスタンプ,値\n';
                     }
-                }, index * 100);
-            });
+
+                    group.data.forEach(record => {
+                        if (exportMode === 'host') {
+                            csv += `"${record.hostName || ''}","${record.itemName}","${record.itemKey || ''}","${record.timestamp}","${record.value}"\n`;
+                        } else {
+                            csv += `"${record.hostName || ''}","${record.itemName}","${record.timestamp}","${record.value}"\n`;
+                        }
+                    });
+
+                    // ファイル名を生成（アイテム名を含む）
+                    const safeItemName = group.itemName.replace(/[^a-zA-Z0-9\u3040-\u309F\u30A0-\u30FF\u4E00-\u9FAF]/g, '_');
+                    const safeHostName = (group.hostName || 'unknown').replace(/[^a-zA-Z0-9\u3040-\u309F\u30A0-\u30FF\u4E00-\u9FAF]/g, '_');
+                    const filename = `${safeHostName}_${safeItemName}.csv`;
+
+                    // ZIPファイルに追加
+                    zip.file(filename, csv);
+                });
+
+                // ZIPファイルを生成
+                showStatus('resultsStatus', 'ZIPファイルを生成中...', 'info');
+                const zipBlob = await zip.generateAsync({
+                    type: 'blob',
+                    compression: 'DEFLATE',
+                    compressionOptions: { level: 6 }
+                });
+
+                // タイムスタンプを含むファイル名を生成
+                const now = new Date();
+                const timestamp = now.toISOString().replace(/[-:]/g, '').replace('T', '-').split('.')[0];
+                const zipFilename = `zabbix-history-export-${timestamp}.zip`;
+
+                // ZIPファイルをダウンロード
+                downloadFile(zipBlob, zipFilename, 'application/zip');
+                showStatus('resultsStatus', `${itemCount}個のCSVファイルをZIPにまとめてダウンロードしました`, 'success');
+            } catch (error) {
+                showStatus('resultsStatus', `エクスポートエラー: ${error.message}`, 'error');
+                console.error('Export error:', error);
+            }
         }
 
         function exportToJSON() {
@@ -878,7 +907,8 @@
         }
 
         function downloadFile(content, filename, mimeType) {
-            const blob = new Blob([content], { type: mimeType });
+            // contentが既にBlobの場合はそのまま使用、そうでなければBlobを作成
+            const blob = content instanceof Blob ? content : new Blob([content], { type: mimeType });
             const url = URL.createObjectURL(blob);
             const link = document.createElement('a');
             link.href = url;
