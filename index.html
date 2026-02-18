@@ -664,8 +664,13 @@
                     });
                 }
 
-                showStatus('timeStatus', `${historyData.length}件の履歴データを取得しました`, 'success');
-                displayResults();
+                showStatus('timeStatus', `${historyData.length}件の履歴データを取得しました。CSVエクスポートボタンからダウンロードしてください。`, 'success');
+                // パフォーマンス向上のため、データを画面に表示しません
+                // displayResults();
+                
+                // 結果セクションを表示（エクスポートボタンのため）
+                document.getElementById('resultsSection').classList.remove('hidden');
+                showStatus('resultsStatus', `${historyData.length}件のデータを取得しました。表示はスキップされています（パフォーマンス向上のため）。CSVまたはJSONでエクスポートしてください。`, 'info');
 
             } catch (error) {
                 showStatus('timeStatus', `履歴データ取得エラー: ${error.message}`, 'error');
@@ -735,8 +740,13 @@
                     });
                 }
 
-                showStatus('timeStatus', `${historyData.length}件の履歴データを取得しました`, 'success');
-                displayResults();
+                showStatus('timeStatus', `${historyData.length}件の履歴データを取得しました。CSVエクスポートボタンからダウンロードしてください。`, 'success');
+                // パフォーマンス向上のため、データを画面に表示しません
+                // displayResults();
+                
+                // 結果セクションを表示（エクスポートボタンのため）
+                document.getElementById('resultsSection').classList.remove('hidden');
+                showStatus('resultsStatus', `${historyData.length}件のデータを取得しました。表示はスキップされています（パフォーマンス向上のため）。CSVまたはJSONでエクスポートしてください。`, 'info');
 
             } catch (error) {
                 showStatus('timeStatus', `履歴データ取得エラー: ${error.message}`, 'error');
@@ -803,25 +813,57 @@
                 return;
             }
 
-            let csv = '\uFEFF'; // UTF-8 BOM for Excel compatibility with Japanese characters
-            
-            // ヘッダー行
-            if (exportMode === 'host') {
-                csv += 'ホスト,アイテム,キー,タイムスタンプ,値\n';
-            } else {
-                csv += 'ホスト,アイテム,タイムスタンプ,値\n';
-            }
-
+            // アイテムごとにデータをグループ化
+            const itemGroups = {};
             historyData.forEach(record => {
-                if (exportMode === 'host') {
-                    csv += `"${record.hostName || ''}","${record.itemName}","${record.itemKey || ''}","${record.timestamp}","${record.value}"\n`;
-                } else {
-                    csv += `"${record.hostName || ''}","${record.itemName}","${record.timestamp}","${record.value}"\n`;
+                const itemKey = `${record.itemId}_${record.itemName}`;
+                if (!itemGroups[itemKey]) {
+                    itemGroups[itemKey] = {
+                        itemName: record.itemName,
+                        itemKey: record.itemKey,
+                        hostName: record.hostName,
+                        data: []
+                    };
                 }
+                itemGroups[itemKey].data.push(record);
             });
 
-            downloadFile(csv, 'zabbix-history-export.csv', 'text/csv;charset=utf-8;');
-            showStatus('resultsStatus', 'CSVファイルをダウンロードしました', 'success');
+            const itemCount = Object.keys(itemGroups).length;
+            let fileCount = 0;
+
+            // アイテムごとに個別のCSVファイルを生成してダウンロード
+            Object.entries(itemGroups).forEach(([key, group], index) => {
+                let csv = '\uFEFF'; // UTF-8 BOM for Excel compatibility with Japanese characters
+                
+                // ヘッダー行
+                if (exportMode === 'host') {
+                    csv += 'ホスト,アイテム,キー,タイムスタンプ,値\n';
+                } else {
+                    csv += 'ホスト,アイテム,タイムスタンプ,値\n';
+                }
+
+                group.data.forEach(record => {
+                    if (exportMode === 'host') {
+                        csv += `"${record.hostName || ''}","${record.itemName}","${record.itemKey || ''}","${record.timestamp}","${record.value}"\n`;
+                    } else {
+                        csv += `"${record.hostName || ''}","${record.itemName}","${record.timestamp}","${record.value}"\n`;
+                    }
+                });
+
+                // ファイル名を生成（アイテム名を含む）
+                const safeItemName = group.itemName.replace(/[^a-zA-Z0-9\u3040-\u309F\u30A0-\u30FF\u4E00-\u9FAF]/g, '_');
+                const safeHostName = (group.hostName || 'unknown').replace(/[^a-zA-Z0-9\u3040-\u309F\u30A0-\u30FF\u4E00-\u9FAF]/g, '_');
+                const filename = `zabbix_${safeHostName}_${safeItemName}.csv`;
+
+                // 少し遅延を入れて順次ダウンロード（ブラウザの制限対策）
+                setTimeout(() => {
+                    downloadFile(csv, filename, 'text/csv;charset=utf-8;');
+                    fileCount++;
+                    if (fileCount === itemCount) {
+                        showStatus('resultsStatus', `${itemCount}個のCSVファイルをダウンロードしました（アイテムごとに分割）`, 'success');
+                    }
+                }, index * 100);
+            });
         }
 
         function exportToJSON() {
