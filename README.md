@@ -89,6 +89,18 @@ npx http-server
 - HTTPSを使用することを強く推奨します
 - 本番環境で使用する場合は、適切なアクセス制御を設定してください
 
+## GitHub Pages設定方法
+
+リポジトリをフォークした場合、以下の手順でGitHub Pagesを有効化してください：
+
+1. GitHubリポジトリの **Settings** タブを開く
+2. 左メニューから **Pages** を選択
+3. **Source** セクションで以下を設定：
+   - Source: **GitHub Actions** を選択
+4. 変更をコミット・プッシュすると自動的にデプロイされます
+
+デプロイ後、`https://<username>.github.io/<repository-name>/` でアクセス可能になります。
+
 ## ライセンス
 
 MIT License - 詳細は [LICENSE](LICENSE) を参照してください
