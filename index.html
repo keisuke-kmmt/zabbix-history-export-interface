@@ -281,12 +281,16 @@
                 </div>
                 <div class="form-group">
                     <label for="hostSearchInput">ホスト検索:</label>
-                    <input type="text" 
-                           id="hostSearchInput" 
-                           list="hostSearchDatalist"
-                           placeholder="ホスト名を入力して検索... (2文字以上)"
-                           style="width: 100%; padding: 8px; box-sizing: border-box;">
-                    <datalist id="hostSearchDatalist"></datalist>
+                    <div style="position: relative;">
+                        <input type="text" 
+                               id="hostSearchInput" 
+                               placeholder="ホスト名を入力して検索... (2文字以上)"
+                               autocomplete="off"
+                               style="width: 100%; padding: 8px; box-sizing: border-box;">
+                        <div id="hostSearchDropdown" style="display: none; position: absolute; top: 100%; left: 0; right: 0; background: white; border: 1px solid #ccc; border-radius: 4px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); max-height: 300px; overflow-y: auto; z-index: 1000; margin-top: 2px;">
+                            <!-- カスタムドロップダウンコンテンツ -->
+                        </div>
+                    </div>
                     <div id="selectedHostsDisplay" style="margin-top: 10px; padding: 10px; background: #f5f5f5; border-radius: 4px; min-height: 40px;">
                         <small style="color: #666;">選択されたホスト: なし</small>
                     </div>
@@ -550,37 +554,100 @@
             }
         }
 
-        // datalistを更新する関数
-        function updateHostDatalist(hosts) {
-            const datalist = document.getElementById('hostSearchDatalist');
-            datalist.innerHTML = '';
+        // カスタムドロップダウンを更新する関数
+        let currentHosts = [];
+        let selectedDropdownIndex = -1;
+        
+        function updateHostDropdown(hosts) {
+            currentHosts = hosts;
+            selectedDropdownIndex = -1;
+            const dropdown = document.getElementById('hostSearchDropdown');
             
-            hosts.forEach(host => {
-                const option = document.createElement('option');
-                option.value = host.name || host.host;
-                option.setAttribute('data-hostid', host.hostid);
-                option.setAttribute('data-hostname', host.host);
-                datalist.appendChild(option);
+            if (hosts.length === 0) {
+                dropdown.innerHTML = '<div style="padding: 10px; color: #999; text-align: center;">結果が見つかりません</div>';
+                dropdown.style.display = 'block';
+                return;
+            }
+            
+            let html = `<div style="padding: 8px; background: #f8f9fa; border-bottom: 1px solid #dee2e6; font-size: 0.9em; color: #666;">📋 ${hosts.length}件の結果</div>`;
+            
+            hosts.forEach((host, index) => {
+                const displayName = host.name || host.host;
+                const technicalName = host.host;
+                html += `
+                    <div class="host-search-item" data-index="${index}" data-hostid="${host.hostid}" data-hostname="${technicalName}" data-displayname="${displayName}"
+                         style="padding: 10px; cursor: pointer; border-bottom: 1px solid #eee;">
+                        <div style="font-weight: 500; color: #333;">${escapeHtml(displayName)}</div>
+                        <div style="font-size: 0.85em; color: #666; margin-top: 2px;">${escapeHtml(technicalName)}</div>
+                    </div>
+                `;
+            });
+            
+            dropdown.innerHTML = html;
+            dropdown.style.display = 'block';
+            
+            // クリックイベントを追加
+            dropdown.querySelectorAll('.host-search-item').forEach(item => {
+                item.addEventListener('click', function() {
+                    const displayName = this.getAttribute('data-displayname');
+                    selectHostFromDropdown(displayName);
+                });
+                
+                item.addEventListener('mouseenter', function() {
+                    // 他のホバー状態を解除
+                    dropdown.querySelectorAll('.host-search-item').forEach(i => {
+                        i.style.background = '';
+                    });
+                    this.style.background = '#e3f2fd';
+                    selectedDropdownIndex = parseInt(this.getAttribute('data-index'));
+                });
+            });
+        }
+        
+        function hideHostDropdown() {
+            const dropdown = document.getElementById('hostSearchDropdown');
+            dropdown.style.display = 'none';
+            selectedDropdownIndex = -1;
+        }
+        
+        function selectHostFromDropdown(displayName) {
+            const searchInput = document.getElementById('hostSearchInput');
+            searchInput.value = displayName;
+            hideHostDropdown();
+            addSelectedHost(displayName);
+        }
+        
+        function highlightDropdownItem(index) {
+            const dropdown = document.getElementById('hostSearchDropdown');
+            const items = dropdown.querySelectorAll('.host-search-item');
+            
+            items.forEach((item, i) => {
+                if (i === index) {
+                    item.style.background = '#e3f2fd';
+                    item.scrollIntoView({ block: 'nearest' });
+                } else {
+                    item.style.background = '';
+                }
             });
         }
 
         // ホストを選択リストに追加する関数
         function addSelectedHost(hostName) {
-            // datalistからhostidを取得
-            const datalist = document.getElementById('hostSearchDatalist');
-            const options = datalist.getElementsByTagName('option');
+            // カスタムドロップダウンからhostidを取得
             let hostId = null;
             let hostTechnicalName = null;
             
-            for (let option of options) {
-                if (option.value === hostName) {
-                    hostId = option.getAttribute('data-hostid');
-                    hostTechnicalName = option.getAttribute('data-hostname');
+            for (let host of currentHosts) {
+                if ((host.name || host.host) === hostName) {
+                    hostId = host.hostid;
+                    hostTechnicalName = host.host;
                     break;
                 }
             }
             
             if (!hostId) {
+                return false;
+            }
                 return false;
             }
             
@@ -657,6 +724,7 @@
         let searchTimeout;
         function setupHostSearch() {
             const searchInput = document.getElementById('hostSearchInput');
+            const dropdown = document.getElementById('hostSearchDropdown');
             
             searchInput.addEventListener('input', async function(e) {
                 const query = e.target.value.trim();
@@ -664,14 +732,14 @@
                 clearTimeout(searchTimeout);
                 
                 if (query.length < 2) {
-                    updateHostDatalist([]);
+                    hideHostDropdown();
                     return;
                 }
                 
                 searchTimeout = setTimeout(async () => {
                     showStatus('hostStatus', 'ホストを検索中...', 'info');
                     const hosts = await searchHosts(query);
-                    updateHostDatalist(hosts);
+                    updateHostDropdown(hosts);
                     
                     if (hosts.length > 0) {
                         showStatus('hostStatus', `${hosts.length}件のホストが見つかりました（最大100件まで表示）`, 'success');
@@ -681,11 +749,35 @@
                 }, 300);
             });
             
-            // ホスト選択時の処理
-            searchInput.addEventListener('change', function(e) {
-                const hostName = e.target.value.trim();
-                if (hostName) {
-                    addSelectedHost(hostName);
+            // キーボードナビゲーション
+            searchInput.addEventListener('keydown', function(e) {
+                const dropdown = document.getElementById('hostSearchDropdown');
+                if (dropdown.style.display === 'none') return;
+                
+                if (e.key === 'ArrowDown') {
+                    e.preventDefault();
+                    selectedDropdownIndex = Math.min(selectedDropdownIndex + 1, currentHosts.length - 1);
+                    highlightDropdownItem(selectedDropdownIndex);
+                } else if (e.key === 'ArrowUp') {
+                    e.preventDefault();
+                    selectedDropdownIndex = Math.max(selectedDropdownIndex - 1, 0);
+                    highlightDropdownItem(selectedDropdownIndex);
+                } else if (e.key === 'Enter') {
+                    e.preventDefault();
+                    if (selectedDropdownIndex >= 0 && selectedDropdownIndex < currentHosts.length) {
+                        const host = currentHosts[selectedDropdownIndex];
+                        const displayName = host.name || host.host;
+                        selectHostFromDropdown(displayName);
+                    }
+                } else if (e.key === 'Escape') {
+                    hideHostDropdown();
+                }
+            });
+            
+            // クリック外で閉じる
+            document.addEventListener('click', function(e) {
+                if (!searchInput.contains(e.target) && !dropdown.contains(e.target)) {
+                    hideHostDropdown();
                 }
             });
         }
