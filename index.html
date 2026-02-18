@@ -362,7 +362,8 @@
 
         function showStatus(elementId, message, type) {
             const statusElement = document.getElementById(elementId);
-            statusElement.textContent = message;
+            // 改行を<br>タグに変換
+            statusElement.innerHTML = message.replace(/\n/g, '<br>');
             statusElement.className = `status ${type}`;
             statusElement.style.display = 'block';
         }
@@ -442,7 +443,18 @@
                 await loadHosts();
 
             } catch (error) {
-                showStatus('connectionStatus', `接続エラー: ${error.message}`, 'error');
+                let errorMessage = `接続エラー: ${error.message}`;
+                
+                // より詳しいエラー情報を提供
+                if (error.message.includes('Incorrect user name or password')) {
+                    errorMessage = `認証エラー: ユーザー名またはパスワードが間違っています。\n\n確認事項：\n• ユーザー名とパスワードが正しいか\n• Zabbix Webインターフェースで同じ認証情報でログインできるか\n• アカウントがロックされていないか`;
+                } else if (error.message.includes('temporarily blocked')) {
+                    errorMessage = `認証エラー: アカウントが一時的にブロックされています。\n\n対処方法：\n• しばらく待ってから再試行してください\n• Zabbix管理者に連絡してアカウントのロックを解除してもらってください`;
+                } else if (error.message.includes('Connection') || error.message.includes('Failed to fetch')) {
+                    errorMessage = `接続エラー: Zabbixサーバーに接続できません。\n\n確認事項：\n• URLが正しいか（例: https://your-server/api_jsonrpc.php）\n• Zabbixサーバーが起動しているか\n• ネットワーク接続が正常か\n• CORSが有効になっているか`;
+                }
+                
+                showStatus('connectionStatus', errorMessage, 'error');
                 authToken = null;
             }
         }
