@@ -555,7 +555,6 @@
         }
 
         // カスタムドロップダウンを更新する関数
-        let currentHosts = [];
         let selectedDropdownIndex = -1;
         
         function updateHostDropdown(hosts) {
@@ -648,8 +647,6 @@
             if (!hostId) {
                 return false;
             }
-                return false;
-            }
             
             // すでに選択済みかチェック
             if (selectedHosts.find(h => h.hostid === hostId)) {
@@ -667,7 +664,7 @@
             updateSelectedHostsDisplay();
             
             // 個別アイテムモードの場合、アイテムをロード
-            const exportMode = document.getElementById('exportMode').value;
+            exportMode = document.getElementById('exportMode').value;
             if (exportMode === 'item' && selectedHosts.length === 1) {
                 loadItems();
             }
@@ -711,7 +708,7 @@
             showStatus('hostStatus', `ホスト「${removedHost.name}」を選択解除しました`, 'info');
             
             // アイテムリストもクリア
-            const exportMode = document.getElementById('exportMode').value;
+            exportMode = document.getElementById('exportMode').value;
             if (exportMode === 'item' && selectedHosts.length === 0) {
                 document.getElementById('itemSelect').innerHTML = '<option value="">アイテムを選択してください</option>';
                 document.getElementById('itemSection').classList.add('hidden');
@@ -795,7 +792,7 @@
             }
             
             // 個別アイテムモードで複数ホストが選択されている場合
-            const exportMode = document.getElementById('exportMode').value;
+            exportMode = document.getElementById('exportMode').value;
             if (exportMode === 'item' && selectedHosts.length > 1) {
                 showStatus('itemStatus', '個別アイテムモードでは1つのホストのみ選択してください', 'error');
                 document.getElementById('itemSection').classList.add('hidden');
