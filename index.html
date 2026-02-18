@@ -280,11 +280,17 @@
                     <div class="info-text">個別: 特定のアイテムを選択 / ホスト全体: すべてのアイテムをエクスポート</div>
                 </div>
                 <div class="form-group">
-                    <label for="hostSelect">ホスト:</label>
-                    <select id="hostSelect" onchange="loadItems()">
-                        <option value="">ホストを選択してください</option>
-                    </select>
-                    <div class="info-text" id="hostSelectInfo"></div>
+                    <label for="hostSearchInput">ホスト検索:</label>
+                    <input type="text" 
+                           id="hostSearchInput" 
+                           list="hostSearchDatalist"
+                           placeholder="ホスト名を入力して検索... (2文字以上)"
+                           style="width: 100%; padding: 8px; box-sizing: border-box;">
+                    <datalist id="hostSearchDatalist"></datalist>
+                    <div id="selectedHostsDisplay" style="margin-top: 10px; padding: 10px; background: #f5f5f5; border-radius: 4px; min-height: 40px;">
+                        <small style="color: #666;">選択されたホスト: なし</small>
+                    </div>
+                    <div class="info-text" id="hostSelectInfo">検索してホストを選択してください。複数選択する場合は再度検索して選択してください。</div>
                 </div>
                 <div id="hostStatus" class="status"></div>
             </div>
@@ -463,8 +469,8 @@
                 // Show next sections
                 document.getElementById('hostSection').classList.remove('hidden');
                 
-                // Load hosts
-                await loadHosts();
+                // ホストは検索ベースなので、ここではロードしない
+                showStatus('hostStatus', 'ホスト検索の準備ができました。ホスト名を入力して検索してください。', 'success');
 
             } catch (error) {
                 let errorMessage = `接続エラー: ${error.message}`;
@@ -488,6 +494,7 @@
             historyData = [];
             currentHosts = [];
             currentItems = [];
+            selectedHosts = [];  // 選択済みホストもクリア
 
             // Reset UI
             document.getElementById('connectBtn').classList.remove('hidden');
@@ -495,6 +502,11 @@
             document.getElementById('zabbixUrl').disabled = false;
             document.getElementById('username').disabled = false;
             document.getElementById('password').disabled = false;
+            
+            // ホスト検索フィールドとdatalistをクリア
+            document.getElementById('hostSearchInput').value = '';
+            document.getElementById('hostSearchDatalist').innerHTML = '';
+            updateSelectedHostsDisplay();
 
             // Hide sections
             document.getElementById('hostSection').classList.add('hidden');
@@ -510,39 +522,197 @@
             showStatus('connectionStatus', '切断しました', 'info');
         }
 
-        async function loadHosts() {
-            showStatus('hostStatus', 'ホスト読み込み中...', 'info');
+        // 選択済みホストを管理するための変数
+        let selectedHosts = [];
 
+        // ホスト検索関数（2文字以上で検索、最大100件まで）
+        async function searchHosts(query) {
+            if (!query || query.trim().length < 2) {
+                return [];
+            }
+            
             try {
-                currentHosts = await callZabbixAPI('host.get', {
-                    output: ['hostid', 'host'],
-                    sortfield: 'name'
+                const hosts = await callZabbixAPI('host.get', {
+                    output: ['hostid', 'host', 'name'],
+                    search: {
+                        name: query.trim()
+                    },
+                    searchWildcardsEnabled: true,
+                    sortfield: 'name',
+                    sortorder: 'ASC',
+                    limit: 100
                 });
-
-                const hostSelect = document.getElementById('hostSelect');
-                hostSelect.innerHTML = '<option value="">ホストを選択してください</option>';
-
-                currentHosts.forEach(host => {
-                    const option = document.createElement('option');
-                    option.value = host.hostid;
-                    option.textContent = `${host.host}`;
-                    hostSelect.appendChild(option);
-                });
-
-                showStatus('hostStatus', `${currentHosts.length}個のホストを読み込みました`, 'success');
-
+                
+                return hosts;
             } catch (error) {
-                showStatus('hostStatus', `ホスト読み込みエラー: ${error.message}`, 'error');
+                console.error('Host search error:', error);
+                showStatus('hostStatus', `ホスト検索エラー: ${error.message}`, 'error');
+                return [];
             }
         }
 
-        async function loadItems() {
-            const hostId = document.getElementById('hostSelect').value;
+        // datalistを更新する関数
+        function updateHostDatalist(hosts) {
+            const datalist = document.getElementById('hostSearchDatalist');
+            datalist.innerHTML = '';
+            
+            hosts.forEach(host => {
+                const option = document.createElement('option');
+                option.value = host.name || host.host;
+                option.setAttribute('data-hostid', host.hostid);
+                option.setAttribute('data-hostname', host.host);
+                datalist.appendChild(option);
+            });
+        }
 
+        // ホストを選択リストに追加する関数
+        function addSelectedHost(hostName) {
+            // datalistからhostidを取得
+            const datalist = document.getElementById('hostSearchDatalist');
+            const options = datalist.getElementsByTagName('option');
+            let hostId = null;
+            let hostTechnicalName = null;
+            
+            for (let option of options) {
+                if (option.value === hostName) {
+                    hostId = option.getAttribute('data-hostid');
+                    hostTechnicalName = option.getAttribute('data-hostname');
+                    break;
+                }
+            }
+            
             if (!hostId) {
+                return false;
+            }
+            
+            // すでに選択済みかチェック
+            if (selectedHosts.find(h => h.hostid === hostId)) {
+                showStatus('hostStatus', 'このホストは既に選択されています', 'info');
+                return false;
+            }
+            
+            // ホストを追加
+            selectedHosts.push({
+                hostid: hostId,
+                name: hostName,
+                host: hostTechnicalName
+            });
+            
+            updateSelectedHostsDisplay();
+            
+            // 個別アイテムモードの場合、アイテムをロード
+            const exportMode = document.getElementById('exportMode').value;
+            if (exportMode === 'item' && selectedHosts.length === 1) {
+                loadItems();
+            }
+            
+            showStatus('hostStatus', `ホスト「${hostName}」を選択しました`, 'success');
+            
+            // 入力フィールドをクリア
+            document.getElementById('hostSearchInput').value = '';
+            
+            return true;
+        }
+
+        // 選択済みホストの表示を更新する関数
+        function updateSelectedHostsDisplay() {
+            const display = document.getElementById('selectedHostsDisplay');
+            
+            if (selectedHosts.length === 0) {
+                display.innerHTML = '<small style="color: #666;">選択されたホスト: なし</small>';
+                return;
+            }
+            
+            let html = '<div style="margin-bottom: 5px;"><strong>選択されたホスト:</strong></div>';
+            selectedHosts.forEach((host, index) => {
+                html += `
+                    <div style="display: inline-block; background: #007bff; color: white; padding: 5px 10px; margin: 3px; border-radius: 3px;">
+                        ${host.name}
+                        <button onclick="removeSelectedHost(${index})" 
+                                style="background: none; border: none; color: white; cursor: pointer; font-weight: bold; margin-left: 5px;">×</button>
+                    </div>
+                `;
+            });
+            
+            display.innerHTML = html;
+        }
+
+        // ホストを選択リストから削除する関数
+        function removeSelectedHost(index) {
+            const removedHost = selectedHosts[index];
+            selectedHosts.splice(index, 1);
+            updateSelectedHostsDisplay();
+            showStatus('hostStatus', `ホスト「${removedHost.name}」を選択解除しました`, 'info');
+            
+            // アイテムリストもクリア
+            const exportMode = document.getElementById('exportMode').value;
+            if (exportMode === 'item' && selectedHosts.length === 0) {
+                document.getElementById('itemSelect').innerHTML = '<option value="">アイテムを選択してください</option>';
+                document.getElementById('itemSection').classList.add('hidden');
+            } else if (exportMode === 'item' && selectedHosts.length === 1) {
+                loadItems();
+            }
+        }
+
+        // リアルタイム検索のセットアップ
+        let searchTimeout;
+        function setupHostSearch() {
+            const searchInput = document.getElementById('hostSearchInput');
+            
+            searchInput.addEventListener('input', async function(e) {
+                const query = e.target.value.trim();
+                
+                clearTimeout(searchTimeout);
+                
+                if (query.length < 2) {
+                    updateHostDatalist([]);
+                    return;
+                }
+                
+                searchTimeout = setTimeout(async () => {
+                    showStatus('hostStatus', 'ホストを検索中...', 'info');
+                    const hosts = await searchHosts(query);
+                    updateHostDatalist(hosts);
+                    
+                    if (hosts.length > 0) {
+                        showStatus('hostStatus', `${hosts.length}件のホストが見つかりました（最大100件まで表示）`, 'success');
+                    } else {
+                        showStatus('hostStatus', 'ホストが見つかりませんでした', 'info');
+                    }
+                }, 300);
+            });
+            
+            // ホスト選択時の処理
+            searchInput.addEventListener('change', function(e) {
+                const hostName = e.target.value.trim();
+                if (hostName) {
+                    addSelectedHost(hostName);
+                }
+            });
+        }
+
+        // ページロード時にセットアップ
+        document.addEventListener('DOMContentLoaded', function() {
+            setupHostSearch();
+        });
+
+        async function loadItems() {
+            // 選択されたホストがない場合
+            if (selectedHosts.length === 0) {
                 document.getElementById('itemSection').classList.add('hidden');
                 return;
             }
+            
+            // 個別アイテムモードで複数ホストが選択されている場合
+            const exportMode = document.getElementById('exportMode').value;
+            if (exportMode === 'item' && selectedHosts.length > 1) {
+                showStatus('itemStatus', '個別アイテムモードでは1つのホストのみ選択してください', 'error');
+                document.getElementById('itemSection').classList.add('hidden');
+                return;
+            }
+            
+            // 最初のホストのアイテムをロード
+            const hostId = selectedHosts[0].hostid;
 
             document.getElementById('itemSection').classList.remove('hidden');
             showStatus('itemStatus', 'アイテム読み込み中...', 'info');
@@ -585,21 +755,32 @@
 
             if (exportMode === 'host') {
                 // ホスト全体エクスポートモード
-                hostSelect.multiple = true;
-                hostSelect.size = 8;
-                hostSelectInfo.textContent = 'Ctrlキー(またはCmd)を押しながらクリックで複数ホスト選択可';
-                hostSelect.onchange = null; // ホスト全体モードではアイテム読み込みが不要なのでonchangeイベントを無効化
+                hostSelectInfo.textContent = '複数のホストを検索して選択できます。各ホストのすべてのアイテムがエクスポートされます。';
                 itemSection.classList.add('hidden');
                 timeSection.classList.remove('hidden');
                 getHistoryBtn.classList.add('hidden');
                 getHostHistoryBtn.classList.remove('hidden');
             } else {
                 // 個別アイテム選択モード
-                hostSelect.multiple = false;
-                hostSelect.size = 1;
-                hostSelectInfo.textContent = '';
-                hostSelect.onchange = loadItems;
-                itemSection.classList.add('hidden');
+                hostSelectInfo.textContent = '1つのホストを検索して選択してください。';
+                
+                // 複数ホストが選択されている場合は警告
+                if (selectedHosts.length > 1) {
+                    showStatus('hostStatus', '個別アイテムモードでは1つのホストのみ選択してください', 'error');
+                    // 2つ目以降のホストを削除
+                    while (selectedHosts.length > 1) {
+                        selectedHosts.pop();
+                    }
+                    updateSelectedHostsDisplay();
+                }
+                
+                // ホストが選択されている場合はアイテムをロード
+                if (selectedHosts.length === 1) {
+                    loadItems();
+                } else {
+                    itemSection.classList.add('hidden');
+                }
+                
                 timeSection.classList.add('hidden');
                 getHistoryBtn.classList.remove('hidden');
                 getHostHistoryBtn.classList.add('hidden');
@@ -607,10 +788,7 @@
         }
 
         async function getHostHistory() {
-            const hostSelect = document.getElementById('hostSelect');
-            const selectedOptions = Array.from(hostSelect.selectedOptions);
-
-            if (selectedOptions.length === 0) {
+            if (selectedHosts.length === 0) {
                 showStatus('timeStatus', 'ホストを選択してください', 'error');
                 return;
             }
@@ -631,17 +809,17 @@
                 return;
             }
 
-            showStatus('timeStatus', `ホストを選択: ${selectedOptions.length}ホスト...`, 'info');
+            showStatus('timeStatus', `ホストを選択: ${selectedHosts.length}ホスト...`, 'info');
             historyData = [];
 
             try {
                 // 選択されたホストのすべてのアイテムを取得
-                const selectedHostIds = selectedOptions.map(opt => opt.value);
+                const selectedHostIds = selectedHosts.map(h => h.hostid);
                 
                 // ホストIDと名前のマップを作成（パフォーマンス改善）
                 const hostNameMap = new Map();
-                selectedOptions.forEach(opt => {
-                    hostNameMap.set(opt.value, opt.textContent);
+                selectedHosts.forEach(h => {
+                    hostNameMap.set(h.hostid, h.name);
                 });
                 
                 let processedHosts = 0;
