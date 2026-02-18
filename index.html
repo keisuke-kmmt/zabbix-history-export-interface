@@ -1077,17 +1077,6 @@
 
             return (dosDate << 16) | dosTime;
         }
-                const timestamp = now.toISOString().replace(/[-:]/g, '').replace('T', '-').split('.')[0];
-                const zipFilename = `zabbix-history-export-${timestamp}.zip`;
-
-                // ZIPファイルをダウンロード
-                downloadFile(zipBlob, zipFilename, 'application/zip');
-                showStatus('resultsStatus', `${itemCount}個のCSVファイルをZIPにまとめてダウンロードしました`, 'success');
-            } catch (error) {
-                showStatus('resultsStatus', `エクスポートエラー: ${error.message}`, 'error');
-                console.error('Export error:', error);
-            }
-        }
 
         function exportToJSON() {
             if (historyData.length === 0) {
