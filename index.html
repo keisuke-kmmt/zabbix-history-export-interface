@@ -631,7 +631,7 @@
                 return;
             }
 
-            showStatus('timeStatus', 'ホストのアイテムを取得中...', 'info');
+            showStatus('timeStatus', `ホストを選択: ${selectedOptions.length}ホスト...`, 'info');
             historyData = [];
 
             try {
@@ -644,8 +644,12 @@
                     hostNameMap.set(opt.value, opt.textContent);
                 });
                 
+                let processedHosts = 0;
                 for (const hostId of selectedHostIds) {
+                    processedHosts++;
                     const hostName = hostNameMap.get(hostId);
+                    
+                    showStatus('timeStatus', `ホスト ${hostName} のアイテムを取得中 (${processedHosts}/${selectedHostIds.length})...`, 'info');
                     
                     // ホストのアイテムを取得
                     const items = await callZabbixAPI('item.get', {
@@ -655,10 +659,10 @@
                         webitems: false
                     });
 
-                    showStatus('timeStatus', `${hostName} の履歴データ取得中... (${items.length}個のアイテム)`, 'info');
+                    showStatus('timeStatus', `ホスト ${hostName}: ${items.length}個のアイテムのデータを取得中...`, 'info');
 
                     // 各アイテムの履歴データを並列取得（パフォーマンス改善）
-                    const historyPromises = items.map(item => 
+                    const historyPromises = items.map((item, index) => 
                         callZabbixAPI('history.get', {
                             output: 'extend',
                             history: parseInt(item.value_type),
@@ -735,7 +739,7 @@
                 return;
             }
 
-            showStatus('timeStatus', '履歴データ取得中...', 'info');
+            showStatus('timeStatus', `データ取得を開始します（${selectedOptions.length}アイテム）...`, 'info');
             historyData = [];
 
             try {
@@ -744,10 +748,13 @@
                 const selectedHostOption = hostSelect.options[hostSelect.selectedIndex];
                 const hostName = selectedHostOption ? selectedHostOption.textContent : '';
 
-                for (const option of selectedOptions) {
+                for (let i = 0; i < selectedOptions.length; i++) {
+                    const option = selectedOptions[i];
                     const itemId = option.value;
                     const valueType = option.dataset.valueType;
                     const itemName = option.textContent;
+
+                    showStatus('timeStatus', `データ取得中: ${itemName} (${i + 1}/${selectedOptions.length})...`, 'info');
 
                     const history = await callZabbixAPI('history.get', {
                         output: 'extend',
