@@ -934,7 +934,7 @@
                     const minTimestamp = Math.min(...timestamps);
                     const maxTimestamp = Math.max(...timestamps);
                     
-                    // YYYYMMDD_HHMMSS形式にフォーマット
+                    // YYYYMMDDHHMMSS形式にフォーマット
                     const formatDateTime = (timestamp) => {
                         const date = new Date(timestamp * 1000);
                         const year = date.getFullYear();
@@ -943,7 +943,7 @@
                         const hours = String(date.getHours()).padStart(2, '0');
                         const minutes = String(date.getMinutes()).padStart(2, '0');
                         const seconds = String(date.getSeconds()).padStart(2, '0');
-                        return `${year}${month}${day}_${hours}${minutes}${seconds}`;
+                        return `${year}${month}${day}${hours}${minutes}${seconds}`;
                     };
                     
                     startTime = formatDateTime(minTimestamp);
