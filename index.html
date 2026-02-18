@@ -515,7 +515,7 @@
 
             try {
                 currentHosts = await callZabbixAPI('host.get', {
-                    output: ['hostid', 'host', 'name'],
+                    output: ['hostid', 'host'],
                     sortfield: 'name'
                 });
 
@@ -525,7 +525,7 @@
                 currentHosts.forEach(host => {
                     const option = document.createElement('option');
                     option.value = host.hostid;
-                    option.textContent = `${host.name} (${host.host})`;
+                    option.textContent = `${host.host}`;
                     hostSelect.appendChild(option);
                 });
 
