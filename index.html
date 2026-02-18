@@ -922,10 +922,13 @@
                     }
                 });
 
-                // ファイル名を生成（アイテム名を含む）
+                // ファイル名を生成（アイテム名を含む、ホスト名は除外）
                 const safeItemName = group.itemName.replace(/[^a-zA-Z0-9\u3040-\u309F\u30A0-\u30FF\u4E00-\u9FAF]/g, '_');
-                const safeHostName = (group.hostName || 'unknown').replace(/[^a-zA-Z0-9\u3040-\u309F\u30A0-\u30FF\u4E00-\u9FAF]/g, '_');
-                const filename = `${safeHostName}_${safeItemName}.csv`;
+                const safeItemKey = (group.itemKey || '').replace(/[^a-zA-Z0-9\u3040-\u309F\u30A0-\u30FF\u4E00-\u9FAF]/g, '_');
+                // ホスト全体モードの場合はアイテムキーも含めて一意性を確保
+                const filename = exportMode === 'host' && safeItemKey 
+                    ? `${safeItemName}_${safeItemKey}.csv` 
+                    : `${safeItemName}.csv`;
 
                 files.push({
                     name: filename,
