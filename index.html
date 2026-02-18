@@ -252,8 +252,8 @@
                 <h2>1. Zabbix接続設定</h2>
                 <div class="form-group">
                     <label for="zabbixUrl">Zabbix URL:</label>
-                    <input type="text" id="zabbixUrl" placeholder="https://zabbix-server.example.com/api_jsonrpc.php">
-                    <div class="info-text">例: https://zabbix.example.com/api_jsonrpc.php</div>
+                    <input type="text" id="zabbixUrl" placeholder="https://zabbix-server.example.com">
+                    <div class="info-text">例: https://zabbix.example.com（/api_jsonrpc.phpは自動追加されます）</div>
                 </div>
                 <div class="form-group">
                     <label for="username">ユーザー名:</label>
@@ -409,8 +409,27 @@
             }
         }
 
+        // URLを正規化（/api_jsonrpc.phpを自動追加）
+        function normalizeZabbixUrl(url) {
+            if (!url) return url;
+            
+            // URLをトリム
+            url = url.trim();
+            
+            // 既に/api_jsonrpc.phpが含まれている場合はそのまま返す
+            if (url.includes('/api_jsonrpc.php')) {
+                return url;
+            }
+            
+            // 末尾のスラッシュを削除
+            url = url.replace(/\/+$/, '');
+            
+            // /api_jsonrpc.phpを追加
+            return url + '/api_jsonrpc.php';
+        }
+
         async function connectToZabbix() {
-            const url = document.getElementById('zabbixUrl').value;
+            let url = document.getElementById('zabbixUrl').value;
             const username = document.getElementById('username').value;
             const password = document.getElementById('password').value;
 
@@ -418,6 +437,11 @@
                 showStatus('connectionStatus', 'すべてのフィールドを入力してください', 'error');
                 return;
             }
+
+            // URLを正規化（/api_jsonrpc.phpを自動追加）
+            url = normalizeZabbixUrl(url);
+            // 正規化されたURLを入力フィールドに反映
+            document.getElementById('zabbixUrl').value = url;
 
             showStatus('connectionStatus', '接続中...', 'info');
 
@@ -451,7 +475,7 @@
                 } else if (error.message.includes('temporarily blocked')) {
                     errorMessage = `認証エラー: アカウントが一時的にブロックされています。\n\n対処方法：\n• しばらく待ってから再試行してください\n• Zabbix管理者に連絡してアカウントのロックを解除してもらってください`;
                 } else if (error.message.includes('Connection') || error.message.includes('Failed to fetch')) {
-                    errorMessage = `接続エラー: Zabbixサーバーに接続できません。\n\n確認事項：\n• URLが正しいか（例: https://your-server/api_jsonrpc.php）\n• Zabbixサーバーが起動しているか\n• ネットワーク接続が正常か\n• CORSが有効になっているか`;
+                    errorMessage = `接続エラー: Zabbixサーバーに接続できません。\n\n確認事項：\n• URLが正しいか（例: https://your-server）\n• Zabbixサーバーが起動しているか\n• ネットワーク接続が正常か\n• CORSが有効になっているか`;
                 }
                 
                 showStatus('connectionStatus', errorMessage, 'error');
