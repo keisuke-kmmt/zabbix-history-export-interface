@@ -680,7 +680,15 @@
                                 itemName: item.name,
                                 itemKey: item.key_,
                                 clock: record.clock,
-                                timestamp: new Date(record.clock * 1000).toLocaleString('ja-JP'),
+                                timestamp: new Date(record.clock * 1000).toLocaleString('ja-JP', {
+                                    year: 'numeric',
+                                    month: '2-digit',
+                                    day: '2-digit',
+                                    hour: '2-digit',
+                                    minute: '2-digit',
+                                    second: '2-digit',
+                                    hour12: false
+                                }),
                                 value: record.value,
                                 ns: record.ns
                             });
@@ -757,7 +765,15 @@
                             itemId: itemId,
                             itemName: itemName,
                             clock: record.clock,
-                            timestamp: new Date(record.clock * 1000).toLocaleString('ja-JP'),
+                            timestamp: new Date(record.clock * 1000).toLocaleString('ja-JP', {
+                                year: 'numeric',
+                                month: '2-digit',
+                                day: '2-digit',
+                                hour: '2-digit',
+                                minute: '2-digit',
+                                second: '2-digit',
+                                hour12: false
+                            }),
                             value: record.value,
                             ns: record.ns
                         });
@@ -893,16 +909,16 @@
                 
                 // ヘッダー行
                 if (exportMode === 'host') {
-                    csv += 'ホスト,アイテム,キー,タイムスタンプ,値\n';
+                    csv += 'アイテム,キー,タイムスタンプ,値\n';
                 } else {
-                    csv += 'ホスト,アイテム,タイムスタンプ,値\n';
+                    csv += 'アイテム,タイムスタンプ,値\n';
                 }
 
                 group.data.forEach(record => {
                     if (exportMode === 'host') {
-                        csv += `"${record.hostName || ''}","${record.itemName}","${record.itemKey || ''}","${record.timestamp}","${record.value}"\n`;
+                        csv += `"${record.itemName}","${record.itemKey || ''}","${record.timestamp}","${record.value}"\n`;
                     } else {
-                        csv += `"${record.hostName || ''}","${record.itemName}","${record.timestamp}","${record.value}"\n`;
+                        csv += `"${record.itemName}","${record.timestamp}","${record.value}"\n`;
                     }
                 });
 
