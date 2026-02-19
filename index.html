@@ -1037,9 +1037,7 @@
 
             try {
                 // 選択されたホスト名を取得
-                const hostSelect = document.getElementById('hostSelect');
-                const selectedHostOption = hostSelect.options[hostSelect.selectedIndex];
-                const hostName = selectedHostOption ? selectedHostOption.textContent : '';
+                const hostName = selectedHosts.length > 0 ? selectedHosts[0].name : '';
 
                 for (let i = 0; i < selectedOptions.length; i++) {
                     const option = selectedOptions[i];
