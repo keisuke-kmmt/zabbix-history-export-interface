@@ -1330,12 +1330,10 @@
 
                 // ZIPファイルを生成（ネイティブAPI使用）
                 showStatus('resultsStatus', 'ZIPファイルを生成中...', 'info');
-                const zipBlob = await createZipFile(itemGroups);
+                const { zipBlob, filenames, startTime, endTime } = await createZipFile(itemGroups);
 
-                // タイムスタンプを含むファイル名を生成
-                const now = new Date();
-                const timestamp = now.toISOString().replace(/[-:]/g, '').replace('T', '-').split('.')[0];
-                const zipFilename = `zabbix-history-export-${timestamp}.zip`;
+                // ZIPファイル名を生成: zabbix-history-export-{開始日時}-{終了日時}.zip
+                const zipFilename = `zabbix-history-export-${startTime}-${endTime}.zip`;
 
                 // ZIPファイルをダウンロード
                 downloadFile(zipBlob, zipFilename, 'application/zip');
@@ -1350,6 +1348,8 @@
         async function createZipFile(itemGroups) {
             const encoder = new TextEncoder();
             const files = [];
+            let minTimestamp = Infinity;
+            let maxTimestamp = -Infinity;
             
             // 各CSVファイルの内容とメタデータを準備
             Object.entries(itemGroups).forEach(([key, group]) => {
@@ -1379,8 +1379,12 @@
                 let endTime = 'unknown';
                 if (group.data.length > 0) {
                     const timestamps = group.data.map(d => d.clock);
-                    const minTimestamp = Math.min(...timestamps);
-                    const maxTimestamp = Math.max(...timestamps);
+                    const groupMinTimestamp = Math.min(...timestamps);
+                    const groupMaxTimestamp = Math.max(...timestamps);
+                    
+                    // 全体の最小・最大タイムスタンプを更新
+                    if (groupMinTimestamp < minTimestamp) minTimestamp = groupMinTimestamp;
+                    if (groupMaxTimestamp > maxTimestamp) maxTimestamp = groupMaxTimestamp;
                     
                     // YYYYMMDDHHMMSS形式にフォーマット
                     const formatDateTime = (timestamp) => {
@@ -1394,8 +1398,8 @@
                         return `${year}${month}${day}${hours}${minutes}${seconds}`;
                     };
                     
-                    startTime = formatDateTime(minTimestamp);
-                    endTime = formatDateTime(maxTimestamp);
+                    startTime = formatDateTime(groupMinTimestamp);
+                    endTime = formatDateTime(groupMaxTimestamp);
                 }
                 
                 const filename = `${safeHostName}_${safeItemName}_${startTime}-${endTime}.csv`;
@@ -1406,8 +1410,30 @@
                 });
             });
 
+            // 全データの開始日時と終了日時を計算
+            let overallStartTime = 'unknown';
+            let overallEndTime = 'unknown';
+            if (minTimestamp !== Infinity && maxTimestamp !== -Infinity) {
+                const formatDateTime = (timestamp) => {
+                    const date = new Date(timestamp * 1000);
+                    const year = date.getFullYear();
+                    const month = String(date.getMonth() + 1).padStart(2, '0');
+                    const day = String(date.getDate()).padStart(2, '0');
+                    const hours = String(date.getHours()).padStart(2, '0');
+                    const minutes = String(date.getMinutes()).padStart(2, '0');
+                    const seconds = String(date.getSeconds()).padStart(2, '0');
+                    return `${year}${month}${day}${hours}${minutes}${seconds}`;
+                };
+                
+                overallStartTime = formatDateTime(minTimestamp);
+                overallEndTime = formatDateTime(maxTimestamp);
+            }
+
             // ZIP形式でファイルをパッケージ化
-            return await generateZip(files);
+            const zipBlob = await generateZip(files);
+            const filenames = files.map(f => f.name);
+            
+            return { zipBlob, filenames, startTime: overallStartTime, endTime: overallEndTime };
         }
 
         // ZIP形式のファイルを生成（CompressionStream使用）
