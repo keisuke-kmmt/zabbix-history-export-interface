@@ -253,11 +253,11 @@
                 <div class="form-group">
                     <label for="zabbixUrl">Zabbix URL:</label>
                     <input type="text" id="zabbixUrl" placeholder="https://zabbix-server.example.com">
-                    <div class="info-text">例: https://zabbix.example.com（/api_jsonrpc.phpは自動追加されます）</div>
+                    <div class="info-text">例: https://{ZabbixサーバのURL/IPアドレス}/zabbix（/api_jsonrpc.phpは自動追加されます）</div>
                 </div>
                 <div class="form-group">
-                    <label for="username">ユーザー名:</label>
-                    <input type="text" id="username" placeholder="管理者">
+                    <label for="username">ユーザ名:</label>
+                    <input type="text" id="username" placeholder="ユーザ名">
                 </div>
                 <div class="form-group">
                     <label for="password">パスワード:</label>
@@ -481,7 +481,7 @@
                 
                 // より詳しいエラー情報を提供
                 if (error.message.includes('Incorrect user name or password')) {
-                    errorMessage = `認証エラー: ユーザー名またはパスワードが間違っています。\n\n確認事項：\n• ユーザー名とパスワードが正しいか\n• Zabbix Webインターフェースで同じ認証情報でログインできるか\n• アカウントがロックされていないか`;
+                    errorMessage = `認証エラー: ユーザ名またはパスワードが間違っています。\n\n確認事項：\n• ユーザ名とパスワードが正しいか\n• Zabbix Webインターフェースで同じ認証情報でログインできるか\n• アカウントがロックされていないか`;
                 } else if (error.message.includes('temporarily blocked')) {
                     errorMessage = `認証エラー: アカウントが一時的にブロックされています。\n\n対処方法：\n• しばらく待ってから再試行してください\n• Zabbix管理者に連絡してアカウントのロックを解除してもらってください`;
                 } else if (error.message.includes('Connection') || error.message.includes('Failed to fetch')) {
