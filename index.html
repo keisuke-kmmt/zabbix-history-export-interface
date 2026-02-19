@@ -1245,12 +1245,19 @@
 
                 // ZIPファイルを生成（ネイティブAPI使用）
                 showStatus('resultsStatus', 'ZIPファイルを生成中...', 'info');
-                const zipBlob = await createZipFile(itemGroups);
+                const { zipBlob, filenames } = await createZipFile(itemGroups);
 
-                // タイムスタンプを含むファイル名を生成
-                const now = new Date();
-                const timestamp = now.toISOString().replace(/[-:]/g, '').replace('T', '-').split('.')[0];
-                const zipFilename = `zabbix-history-export-${timestamp}.zip`;
+                // CSVファイル名に基づいてZIPファイル名を生成
+                let zipFilename;
+                if (filenames.length === 1) {
+                    // 単一のCSVファイルの場合、そのファイル名を使用（.csvを.zipに変更）
+                    zipFilename = filenames[0].replace(/\.csv$/, '.zip');
+                } else {
+                    // 複数のCSVファイルの場合、最初のファイル名をベースにする
+                    // ファイル名から {hostname}_{itemname}_{timestamp}.zip の形式を抽出
+                    const firstFilename = filenames[0].replace(/\.csv$/, '');
+                    zipFilename = `${firstFilename}.zip`;
+                }
 
                 // ZIPファイルをダウンロード
                 downloadFile(zipBlob, zipFilename, 'application/zip');
@@ -1322,7 +1329,10 @@
             });
 
             // ZIP形式でファイルをパッケージ化
-            return await generateZip(files);
+            const zipBlob = await generateZip(files);
+            const filenames = files.map(f => f.name);
+            
+            return { zipBlob, filenames };
         }
 
         // ZIP形式のファイルを生成（CompressionStream使用）
