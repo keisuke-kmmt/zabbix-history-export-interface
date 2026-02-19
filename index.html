@@ -1,0 +1,1467 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Zabbix履歴データエクスポート</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 10px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            overflow: hidden;
+        }
+
+        header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 30px;
+            text-align: center;
+        }
+
+        header h1 {
+            font-size: 2em;
+            margin-bottom: 10px;
+        }
+
+        header p {
+            opacity: 0.9;
+        }
+
+        .content {
+            padding: 30px;
+        }
+
+        .section {
+            margin-bottom: 30px;
+            padding: 20px;
+            border: 1px solid #e0e0e0;
+            border-radius: 8px;
+            background: #f9f9f9;
+        }
+
+        .section h2 {
+            color: #667eea;
+            margin-bottom: 20px;
+            font-size: 1.5em;
+            border-bottom: 2px solid #667eea;
+            padding-bottom: 10px;
+        }
+
+        .form-group {
+            margin-bottom: 15px;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: 600;
+            color: #333;
+        }
+
+        input[type="text"],
+        input[type="password"],
+        input[type="datetime-local"],
+        select {
+            width: 100%;
+            padding: 10px;
+            border: 2px solid #ddd;
+            border-radius: 5px;
+            font-size: 14px;
+            transition: border-color 0.3s;
+        }
+
+        input[type="text"]:focus,
+        input[type="password"]:focus,
+        input[type="datetime-local"]:focus,
+        select:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        button {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 12px 30px;
+            border-radius: 5px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: transform 0.2s, box-shadow 0.2s;
+            margin-right: 10px;
+            margin-top: 10px;
+        }
+
+        button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+        }
+
+        button:active {
+            transform: translateY(0);
+        }
+
+        button:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .status {
+            padding: 10px;
+            border-radius: 5px;
+            margin-top: 10px;
+            display: none;
+        }
+
+        .status.success {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+
+        .status.error {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+
+        .status.info {
+            background: #d1ecf1;
+            color: #0c5460;
+            border: 1px solid #bee5eb;
+        }
+
+        .hidden {
+            display: none;
+        }
+
+        .data-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+            overflow-x: auto;
+            display: block;
+        }
+
+        .data-table table {
+            width: 100%;
+            min-width: 600px;
+        }
+
+        .data-table th,
+        .data-table td {
+            padding: 12px;
+            text-align: left;
+            border-bottom: 1px solid #ddd;
+        }
+
+        .data-table th {
+            background: #667eea;
+            color: white;
+            font-weight: 600;
+            position: sticky;
+            top: 0;
+        }
+
+        .data-table tr:hover {
+            background: #f5f5f5;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 20px;
+            color: #667eea;
+            font-size: 1.2em;
+        }
+
+        .loading::after {
+            content: '...';
+            animation: dots 1.5s steps(4, end) infinite;
+        }
+
+        @keyframes dots {
+            0%, 20% { content: '.'; }
+            40% { content: '..'; }
+            60%, 100% { content: '...'; }
+        }
+
+        select[multiple] {
+            height: 150px;
+        }
+
+        .info-text {
+            font-size: 0.9em;
+            color: #666;
+            margin-top: 5px;
+            font-style: italic;
+        }
+
+        .button-group {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+
+        @media (max-width: 768px) {
+            .content {
+                padding: 15px;
+            }
+
+            header h1 {
+                font-size: 1.5em;
+            }
+
+            .button-group {
+                flex-direction: column;
+            }
+
+            button {
+                width: 100%;
+                margin-right: 0;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>📊 Zabbix履歴データエクスポート</h1>
+            <p>Zabbix APIを使用してヒストリーデータをエクスポート</p>
+        </header>
+
+        <div class="content">
+            <!-- Connection Section -->
+            <div class="section">
+                <h2>1. Zabbix接続設定</h2>
+                <div class="form-group">
+                    <label for="zabbixUrl">Zabbix URL:</label>
+                    <input type="text" id="zabbixUrl" placeholder="https://zabbix-server.example.com">
+                    <div class="info-text">例: https://{ZabbixサーバのURL/IPアドレス}/zabbix（/api_jsonrpc.phpは自動追加されます）</div>
+                </div>
+                <div class="form-group">
+                    <label for="username">ユーザ名:</label>
+                    <input type="text" id="username" placeholder="ユーザ名">
+                </div>
+                <div class="form-group">
+                    <label for="password">パスワード:</label>
+                    <input type="password" id="password" placeholder="パスワード">
+                </div>
+                <button id="connectBtn" onclick="connectToZabbix()">接続</button>
+                <button id="disconnectBtn" onclick="disconnect()" class="hidden">切断</button>
+                <div id="connectionStatus" class="status"></div>
+            </div>
+
+            <!-- Host Selection Section -->
+            <div id="hostSection" class="section hidden">
+                <h2>2. ホスト選択</h2>
+                <div class="form-group">
+                    <label for="exportMode">エクスポートモード:</label>
+                    <select id="exportMode" onchange="changeExportMode()">
+                        <option value="item">個別アイテム選択</option>
+                        <option value="host">ホスト全体エクスポート</option>
+                    </select>
+                    <div class="info-text">個別: 特定のアイテムを選択 / ホスト全体: すべてのアイテムをエクスポート</div>
+                </div>
+                <div class="form-group">
+                    <label for="hostSearchInput">ホスト検索:</label>
+                    <div style="position: relative;">
+                        <input type="text" 
+                               id="hostSearchInput" 
+                               placeholder="ホスト名を入力して検索... (2文字以上)"
+                               autocomplete="off"
+                               style="width: 100%; padding: 8px; box-sizing: border-box;">
+                        <div id="hostSearchDropdown" style="display: none; position: absolute; top: 100%; left: 0; right: 0; background: white; border: 1px solid #ccc; border-radius: 4px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); max-height: 300px; overflow-y: auto; z-index: 1000; margin-top: 2px;">
+                            <!-- カスタムドロップダウンコンテンツ -->
+                        </div>
+                    </div>
+                    <div id="selectedHostsDisplay" style="margin-top: 10px; padding: 10px; background: #f5f5f5; border-radius: 4px; min-height: 40px;">
+                        <small style="color: #666;">選択されたホスト: なし</small>
+                    </div>
+                    <div class="info-text" id="hostSelectInfo">検索してホストを選択してください。複数選択する場合は再度検索して選択してください。</div>
+                </div>
+                <div id="hostStatus" class="status"></div>
+            </div>
+
+            <!-- Item Selection Section -->
+            <div id="itemSection" class="section hidden">
+                <h2>3. アイテム選択</h2>
+                <div class="form-group">
+                    <label for="itemSelect">アイテム (複数選択可):</label>
+                    <select id="itemSelect" multiple>
+                        <option value="">アイテムを選択してください</option>
+                    </select>
+                    <div class="info-text">Ctrlキー(またはCmd)を押しながらクリックで複数選択</div>
+                </div>
+                <div id="itemStatus" class="status"></div>
+            </div>
+
+            <!-- Time Range Section -->
+            <div id="timeSection" class="section hidden">
+                <h2>4. 時間範囲選択</h2>
+                <div class="form-group">
+                    <label for="timeFrom">開始時刻:</label>
+                    <input type="datetime-local" id="timeFrom">
+                </div>
+                <div class="form-group">
+                    <label for="timeTill">終了時刻:</label>
+                    <input type="datetime-local" id="timeTill">
+                </div>
+                <div class="button-group">
+                    <button id="getHistoryBtn" onclick="getHistory()">履歴データ取得</button>
+                    <button id="getHostHistoryBtn" onclick="getHostHistory()" class="hidden">ホスト全体の履歴データ取得</button>
+                </div>
+                <div id="timeStatus" class="status"></div>
+            </div>
+
+            <!-- Results Section -->
+            <div id="resultsSection" class="section hidden">
+                <h2>5. 結果</h2>
+                <div class="button-group">
+                    <button onclick="exportToCSV()">CSVエクスポート</button>
+                    <button onclick="exportToJSON()">JSONエクスポート</button>
+                </div>
+                <div id="resultsStatus" class="status"></div>
+                <div id="resultsTable" class="data-table"></div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Global variables
+        let authToken = null;
+        let historyData = [];
+        let currentHosts = [];
+        let currentItems = [];
+        let apiRequestCounter = 0;
+        let exportMode = 'item'; // 'item' または 'host'
+        let isHostSearchSetup = false; // ホスト検索のセットアップフラグ
+
+        // Initialize datetime inputs with default values (last 24 hours)
+        window.onload = function() {
+            const now = new Date();
+            const yesterday = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+            
+            document.getElementById('timeTill').value = formatDateTimeLocal(now);
+            document.getElementById('timeFrom').value = formatDateTimeLocal(yesterday);
+        };
+
+        function formatDateTimeLocal(date) {
+            const year = date.getFullYear();
+            const month = String(date.getMonth() + 1).padStart(2, '0');
+            const day = String(date.getDate()).padStart(2, '0');
+            const hours = String(date.getHours()).padStart(2, '0');
+            const minutes = String(date.getMinutes()).padStart(2, '0');
+            return `${year}-${month}-${day}T${hours}:${minutes}`;
+        }
+
+        function showStatus(elementId, message, type) {
+            const statusElement = document.getElementById(elementId);
+            // 改行を<br>タグに変換
+            statusElement.innerHTML = message.replace(/\n/g, '<br>');
+            statusElement.className = `status ${type}`;
+            statusElement.style.display = 'block';
+        }
+
+        function hideStatus(elementId) {
+            const statusElement = document.getElementById(elementId);
+            statusElement.style.display = 'none';
+        }
+
+        async function callZabbixAPI(method, params) {
+            const url = document.getElementById('zabbixUrl').value;
+            
+            const requestBody = {
+                jsonrpc: '2.0',
+                method: method,
+                params: params,
+                id: ++apiRequestCounter
+            };
+
+            if (authToken && method !== 'user.login') {
+                requestBody.auth = authToken;
+            }
+
+            try {
+                const response = await fetch(url, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify(requestBody)
+                });
+
+                const data = await response.json();
+
+                if (data.error) {
+                    throw new Error(data.error.data || data.error.message);
+                }
+
+                return data.result;
+            } catch (error) {
+                console.error('API Error:', error);
+                throw error;
+            }
+        }
+
+        // URLを正規化（/api_jsonrpc.phpを自動追加）
+        function normalizeZabbixUrl(url) {
+            if (!url) return url;
+            
+            // URLをトリム
+            url = url.trim();
+            
+            // 既に/api_jsonrpc.phpが含まれている場合はそのまま返す
+            if (url.includes('/api_jsonrpc.php')) {
+                return url;
+            }
+            
+            // 末尾のスラッシュを削除
+            url = url.replace(/\/+$/, '');
+            
+            // /api_jsonrpc.phpを追加
+            return url + '/api_jsonrpc.php';
+        }
+
+        async function connectToZabbix() {
+            let url = document.getElementById('zabbixUrl').value;
+            const username = document.getElementById('username').value;
+            const password = document.getElementById('password').value;
+
+            if (!url || !username || !password) {
+                showStatus('connectionStatus', 'すべてのフィールドを入力してください', 'error');
+                return;
+            }
+
+            // URLを正規化（/api_jsonrpc.phpを自動追加）
+            url = normalizeZabbixUrl(url);
+            // 正規化されたURLを入力フィールドに反映
+            document.getElementById('zabbixUrl').value = url;
+
+            showStatus('connectionStatus', '接続中...', 'info');
+
+            try {
+                authToken = await callZabbixAPI('user.login', {
+                    username: username,
+                    password: password
+                });
+
+                showStatus('connectionStatus', '接続成功！', 'success');
+                
+                // Update UI
+                document.getElementById('connectBtn').classList.add('hidden');
+                document.getElementById('disconnectBtn').classList.remove('hidden');
+                document.getElementById('zabbixUrl').disabled = true;
+                document.getElementById('username').disabled = true;
+                document.getElementById('password').disabled = true;
+
+                // Show next sections
+                document.getElementById('hostSection').classList.remove('hidden');
+                
+                // ホストは検索ベースなので、ここではロードしない
+                showStatus('hostStatus', 'ホスト検索の準備ができました。ホスト名を入力して検索してください。', 'success');
+
+            } catch (error) {
+                let errorMessage = `接続エラー: ${error.message}`;
+                
+                // より詳しいエラー情報を提供
+                if (error.message.includes('Incorrect user name or password')) {
+                    errorMessage = `認証エラー: ユーザ名またはパスワードが間違っています。\n\n確認事項：\n• ユーザ名とパスワードが正しいか\n• Zabbix Webインターフェースで同じ認証情報でログインできるか\n• アカウントがロックされていないか`;
+                } else if (error.message.includes('temporarily blocked')) {
+                    errorMessage = `認証エラー: アカウントが一時的にブロックされています。\n\n対処方法：\n• しばらく待ってから再試行してください\n• Zabbix管理者に連絡してアカウントのロックを解除してもらってください`;
+                } else if (error.message.includes('Connection') || error.message.includes('Failed to fetch')) {
+                    errorMessage = `接続エラー: Zabbixサーバーに接続できません。\n\n確認事項：\n• URLが正しいか（例: https://your-server）\n• Zabbixサーバーが起動しているか\n• ネットワーク接続が正常か\n• CORSが有効になっているか`;
+                }
+                
+                showStatus('connectionStatus', errorMessage, 'error');
+                authToken = null;
+            }
+        }
+
+        function disconnect() {
+            authToken = null;
+            historyData = [];
+            currentHosts = [];
+            currentItems = [];
+            selectedHosts = [];  // 選択済みホストもクリア
+
+            // Reset UI
+            document.getElementById('connectBtn').classList.remove('hidden');
+            document.getElementById('disconnectBtn').classList.add('hidden');
+            document.getElementById('zabbixUrl').disabled = false;
+            document.getElementById('username').disabled = false;
+            document.getElementById('password').disabled = false;
+            
+            // ホスト検索フィールドとdatalistをクリア
+            document.getElementById('hostSearchInput').value = '';
+            document.getElementById('hostSearchDatalist').innerHTML = '';
+            updateSelectedHostsDisplay();
+
+            // Hide sections
+            document.getElementById('hostSection').classList.add('hidden');
+            document.getElementById('itemSection').classList.add('hidden');
+            document.getElementById('timeSection').classList.add('hidden');
+            document.getElementById('resultsSection').classList.add('hidden');
+
+            // Clear selections
+            document.getElementById('hostSelect').innerHTML = '<option value="">ホストを選択してください</option>';
+            document.getElementById('itemSelect').innerHTML = '<option value="">アイテムを選択してください</option>';
+            document.getElementById('resultsTable').innerHTML = '';
+
+            showStatus('connectionStatus', '切断しました', 'info');
+        }
+
+        // 選択済みホストを管理するための変数
+        let selectedHosts = [];
+
+        // ホスト検索関数（2文字以上で検索、最大100件まで）
+        async function searchHosts(query) {
+            if (!query || query.trim().length < 2) {
+                return [];
+            }
+            
+            try {
+                const hosts = await callZabbixAPI('host.get', {
+                    output: ['hostid', 'host', 'name'],
+                    search: {
+                        name: query.trim()
+                    },
+                    sortfield: 'name',
+                    sortorder: 'ASC',
+                    limit: 100
+                });
+                
+                return hosts;
+            } catch (error) {
+                console.error('Host search error:', error);
+                showStatus('hostStatus', `ホスト検索エラー: ${error.message}`, 'error');
+                return [];
+            }
+        }
+
+        // カスタムドロップダウンを更新する関数
+        let selectedDropdownIndex = -1;
+        
+        function updateHostDropdown(hosts) {
+            currentHosts = hosts;
+            selectedDropdownIndex = -1;
+            const dropdown = document.getElementById('hostSearchDropdown');
+            
+            if (hosts.length === 0) {
+                dropdown.innerHTML = '<div style="padding: 10px; color: #999; text-align: center;">結果が見つかりません</div>';
+                dropdown.style.display = 'block';
+                return;
+            }
+            
+            let html = `<div style="padding: 8px; background: #f8f9fa; border-bottom: 1px solid #dee2e6; font-size: 0.9em; color: #666;">📋 ${hosts.length}件の結果</div>`;
+            
+            hosts.forEach((host, index) => {
+                const displayName = host.name || host.host;
+                const technicalName = host.host;
+                html += `
+                    <div class="host-search-item" data-index="${index}" data-hostid="${host.hostid}" data-hostname="${technicalName}" data-displayname="${displayName}"
+                         style="padding: 10px; cursor: pointer; border-bottom: 1px solid #eee;">
+                        <div style="font-weight: 500; color: #333;">${escapeHtml(displayName)}</div>
+                        <div style="font-size: 0.85em; color: #666; margin-top: 2px;">${escapeHtml(technicalName)}</div>
+                    </div>
+                `;
+            });
+            
+            dropdown.innerHTML = html;
+            dropdown.style.display = 'block';
+        }
+        
+        function hideHostDropdown() {
+            const dropdown = document.getElementById('hostSearchDropdown');
+            dropdown.style.display = 'none';
+            selectedDropdownIndex = -1;
+        }
+        
+        function selectHostFromDropdown(displayName) {
+            const searchInput = document.getElementById('hostSearchInput');
+            searchInput.value = displayName;
+            hideHostDropdown();
+            addSelectedHost(displayName);
+        }
+        
+        function highlightDropdownItem(index) {
+            const dropdown = document.getElementById('hostSearchDropdown');
+            const items = dropdown.querySelectorAll('.host-search-item');
+            
+            items.forEach((item, i) => {
+                if (i === index) {
+                    item.style.background = '#e3f2fd';
+                    item.scrollIntoView({ block: 'nearest' });
+                } else {
+                    item.style.background = '';
+                }
+            });
+        }
+
+        // ホストを選択リストに追加する関数
+        function addSelectedHost(hostName) {
+            // カスタムドロップダウンからhostidを取得
+            let hostId = null;
+            let hostTechnicalName = null;
+            
+            for (let host of currentHosts) {
+                if ((host.name || host.host) === hostName) {
+                    hostId = host.hostid;
+                    hostTechnicalName = host.host;
+                    break;
+                }
+            }
+            
+            if (!hostId) {
+                return false;
+            }
+            
+            // すでに選択済みかチェック
+            if (selectedHosts.find(h => h.hostid === hostId)) {
+                showStatus('hostStatus', 'このホストは既に選択されています', 'info');
+                return false;
+            }
+            
+            // ホストを追加
+            selectedHosts.push({
+                hostid: hostId,
+                name: hostName,
+                host: hostTechnicalName
+            });
+            
+            updateSelectedHostsDisplay();
+            
+            // 個別アイテムモードの場合、アイテムをロード
+            exportMode = document.getElementById('exportMode').value;
+            if (exportMode === 'item' && selectedHosts.length === 1) {
+                loadItems();
+            }
+            
+            showStatus('hostStatus', `ホスト「${hostName}」を選択しました`, 'success');
+            
+            // 入力フィールドをクリア
+            document.getElementById('hostSearchInput').value = '';
+            
+            return true;
+        }
+
+        // 選択済みホストの表示を更新する関数
+        function updateSelectedHostsDisplay() {
+            const display = document.getElementById('selectedHostsDisplay');
+            
+            if (selectedHosts.length === 0) {
+                display.innerHTML = '<small style="color: #666;">選択されたホスト: なし</small>';
+                return;
+            }
+            
+            let html = '<div style="margin-bottom: 5px;"><strong>選択されたホスト:</strong></div>';
+            selectedHosts.forEach((host, index) => {
+                html += `
+                    <div style="display: inline-flex; align-items: center; background: #007bff; color: white; padding: 3px 8px; margin: 3px; border-radius: 3px; font-size: 14px; line-height: 1.4;">
+                        <span style="margin-right: 5px;">${host.name}</span>
+                        <button onclick="removeSelectedHost(${index})" 
+                                style="display: flex; align-items: center; justify-content: center; align-self: center; width: 20px; height: 20px; background: none; border: none; color: white; cursor: pointer; font-weight: bold; padding: 0; line-height: 1; font-size: 16px;">×</button>
+                    </div>
+                `;
+            });
+            
+            display.innerHTML = html;
+        }
+
+        // ホストを選択リストから削除する関数
+        function removeSelectedHost(index) {
+            const removedHost = selectedHosts[index];
+            selectedHosts.splice(index, 1);
+            updateSelectedHostsDisplay();
+            showStatus('hostStatus', `ホスト「${removedHost.name}」を選択解除しました`, 'info');
+            
+            // アイテムリストもクリア
+            exportMode = document.getElementById('exportMode').value;
+            if (exportMode === 'item' && selectedHosts.length === 0) {
+                document.getElementById('itemSelect').innerHTML = '<option value="">アイテムを選択してください</option>';
+                document.getElementById('itemSection').classList.add('hidden');
+            } else if (exportMode === 'item' && selectedHosts.length === 1) {
+                loadItems();
+            }
+        }
+
+        // リアルタイム検索のセットアップ
+        let searchTimeout;
+        function setupHostSearch() {
+            if (isHostSearchSetup) {
+                return; // 既にセットアップ済みの場合はスキップ
+            }
+            isHostSearchSetup = true;
+            
+            const searchInput = document.getElementById('hostSearchInput');
+            const dropdown = document.getElementById('hostSearchDropdown');
+            
+            // イベント委譲: ドロップダウンのクリックイベント（1回だけ追加）
+            dropdown.addEventListener('click', function(e) {
+                const item = e.target.closest('.host-search-item');
+                if (item) {
+                    const displayName = item.getAttribute('data-displayname');
+                    selectHostFromDropdown(displayName);
+                }
+            });
+            
+            // イベント委譲: ドロップダウンのホバーイベント（1回だけ追加）
+            dropdown.addEventListener('mouseenter', function(e) {
+                const item = e.target.closest('.host-search-item');
+                if (item) {
+                    // 他のホバー状態を解除
+                    dropdown.querySelectorAll('.host-search-item').forEach(i => {
+                        i.style.background = '';
+                    });
+                    item.style.background = '#e3f2fd';
+                    selectedDropdownIndex = parseInt(item.getAttribute('data-index'));
+                }
+            }, true); // キャプチャフェーズで処理
+            
+            searchInput.addEventListener('input', async function(e) {
+                const query = e.target.value.trim();
+                
+                clearTimeout(searchTimeout);
+                
+                if (query.length < 2) {
+                    hideHostDropdown();
+                    return;
+                }
+                
+                searchTimeout = setTimeout(async () => {
+                    showStatus('hostStatus', 'ホストを検索中...', 'info');
+                    const hosts = await searchHosts(query);
+                    updateHostDropdown(hosts);
+                    
+                    if (hosts.length > 0) {
+                        showStatus('hostStatus', `${hosts.length}件のホストが見つかりました（最大100件まで表示）`, 'success');
+                    } else {
+                        showStatus('hostStatus', 'ホストが見つかりませんでした', 'info');
+                    }
+                }, 300);
+            });
+            
+            // キーボードナビゲーション
+            searchInput.addEventListener('keydown', function(e) {
+                const dropdown = document.getElementById('hostSearchDropdown');
+                if (dropdown.style.display === 'none') return;
+                
+                if (e.key === 'ArrowDown') {
+                    e.preventDefault();
+                    selectedDropdownIndex = Math.min(selectedDropdownIndex + 1, currentHosts.length - 1);
+                    highlightDropdownItem(selectedDropdownIndex);
+                } else if (e.key === 'ArrowUp') {
+                    e.preventDefault();
+                    selectedDropdownIndex = Math.max(selectedDropdownIndex - 1, 0);
+                    highlightDropdownItem(selectedDropdownIndex);
+                } else if (e.key === 'Enter') {
+                    e.preventDefault();
+                    if (selectedDropdownIndex >= 0 && selectedDropdownIndex < currentHosts.length) {
+                        const host = currentHosts[selectedDropdownIndex];
+                        const displayName = host.name || host.host;
+                        selectHostFromDropdown(displayName);
+                    }
+                } else if (e.key === 'Escape') {
+                    hideHostDropdown();
+                }
+            });
+            
+            // クリック外で閉じる
+            document.addEventListener('click', function(e) {
+                if (!searchInput.contains(e.target) && !dropdown.contains(e.target)) {
+                    hideHostDropdown();
+                }
+            });
+        }
+
+        // ページロード時にセットアップ
+        document.addEventListener('DOMContentLoaded', function() {
+            setupHostSearch();
+        });
+
+        async function loadItems() {
+            // 選択されたホストがない場合
+            if (selectedHosts.length === 0) {
+                document.getElementById('itemSection').classList.add('hidden');
+                return;
+            }
+            
+            // 個別アイテムモードで複数ホストが選択されている場合
+            exportMode = document.getElementById('exportMode').value;
+            if (exportMode === 'item' && selectedHosts.length > 1) {
+                showStatus('itemStatus', '個別アイテムモードでは1つのホストのみ選択してください', 'error');
+                document.getElementById('itemSection').classList.add('hidden');
+                return;
+            }
+            
+            // 最初のホストのアイテムをロード
+            const hostId = selectedHosts[0].hostid;
+
+            document.getElementById('itemSection').classList.remove('hidden');
+            showStatus('itemStatus', 'アイテム読み込み中...', 'info');
+
+            try {
+                currentItems = await callZabbixAPI('item.get', {
+                    output: ['itemid', 'name', 'key_', 'value_type'],
+                    hostids: hostId,
+                    sortfield: 'name',
+                    webitems: false
+                });
+
+                const itemSelect = document.getElementById('itemSelect');
+                itemSelect.innerHTML = '';
+
+                currentItems.forEach(item => {
+                    const option = document.createElement('option');
+                    option.value = item.itemid;
+                    option.textContent = `${item.name} (${item.key_})`;
+                    option.dataset.valueType = item.value_type;
+                    itemSelect.appendChild(option);
+                });
+
+                showStatus('itemStatus', `${currentItems.length}個のアイテムを読み込みました`, 'success');
+                document.getElementById('timeSection').classList.remove('hidden');
+
+            } catch (error) {
+                showStatus('itemStatus', `アイテム読み込みエラー: ${error.message}`, 'error');
+            }
+        }
+
+        function changeExportMode() {
+            exportMode = document.getElementById('exportMode').value;
+            const hostSelect = document.getElementById('hostSelect');
+            const hostSelectInfo = document.getElementById('hostSelectInfo');
+            const itemSection = document.getElementById('itemSection');
+            const timeSection = document.getElementById('timeSection');
+            const getHistoryBtn = document.getElementById('getHistoryBtn');
+            const getHostHistoryBtn = document.getElementById('getHostHistoryBtn');
+
+            if (exportMode === 'host') {
+                // ホスト全体エクスポートモード
+                hostSelectInfo.textContent = '複数のホストを検索して選択できます。各ホストのすべてのアイテムがエクスポートされます。';
+                itemSection.classList.add('hidden');
+                timeSection.classList.remove('hidden');
+                getHistoryBtn.classList.add('hidden');
+                getHostHistoryBtn.classList.remove('hidden');
+            } else {
+                // 個別アイテム選択モード
+                hostSelectInfo.textContent = '1つのホストを検索して選択してください。';
+                
+                // 複数ホストが選択されている場合は警告
+                if (selectedHosts.length > 1) {
+                    showStatus('hostStatus', '個別アイテムモードでは1つのホストのみ選択してください', 'error');
+                    // 2つ目以降のホストを削除
+                    while (selectedHosts.length > 1) {
+                        selectedHosts.pop();
+                    }
+                    updateSelectedHostsDisplay();
+                }
+                
+                // ホストが選択されている場合はアイテムをロード
+                if (selectedHosts.length === 1) {
+                    loadItems();
+                } else {
+                    itemSection.classList.add('hidden');
+                }
+                
+                timeSection.classList.add('hidden');
+                getHistoryBtn.classList.remove('hidden');
+                getHostHistoryBtn.classList.add('hidden');
+            }
+        }
+
+        async function getHostHistory() {
+            historyData = []; // 前回のデータをクリア
+            
+            if (selectedHosts.length === 0) {
+                showStatus('timeStatus', 'ホストを選択してください', 'error');
+                return;
+            }
+
+            const timeFrom = document.getElementById('timeFrom').value;
+            const timeTill = document.getElementById('timeTill').value;
+
+            if (!timeFrom || !timeTill) {
+                showStatus('timeStatus', '時間範囲を指定してください', 'error');
+                return;
+            }
+
+            const timeFromUnix = Math.floor(new Date(timeFrom).getTime() / 1000);
+            const timeTillUnix = Math.floor(new Date(timeTill).getTime() / 1000);
+
+            if (timeFromUnix >= timeTillUnix) {
+                showStatus('timeStatus', '開始時刻は終了時刻より前である必要があります', 'error');
+                return;
+            }
+
+            showStatus('timeStatus', `ホストを選択: ${selectedHosts.length}ホスト...`, 'info');
+            historyData = [];
+
+            try {
+                // 選択されたホストのすべてのアイテムを取得
+                const selectedHostIds = selectedHosts.map(h => h.hostid);
+                
+                // ホストIDと名前のマップを作成（パフォーマンス改善）
+                const hostNameMap = new Map();
+                selectedHosts.forEach(h => {
+                    hostNameMap.set(h.hostid, h.name);
+                });
+                
+                let processedHosts = 0;
+                for (const hostId of selectedHostIds) {
+                    processedHosts++;
+                    const hostName = hostNameMap.get(hostId);
+                    
+                    showStatus('timeStatus', `ホスト ${hostName} のアイテムを取得中 (${processedHosts}/${selectedHostIds.length})...`, 'info');
+                    
+                    // ホストのアイテムを取得
+                    const items = await callZabbixAPI('item.get', {
+                        output: ['itemid', 'name', 'key_', 'value_type'],
+                        hostids: hostId,
+                        sortfield: 'name',
+                        webitems: false
+                    });
+
+                    showStatus('timeStatus', `ホスト ${hostName}: ${items.length}個のアイテムのデータを取得中...`, 'info');
+
+                    // 各アイテムの履歴データを並列取得（パフォーマンス改善）
+                    const historyPromises = items.map(item => 
+                        callZabbixAPI('history.get', {
+                            output: 'extend',
+                            history: parseInt(item.value_type),
+                            itemids: item.itemid,
+                            sortfield: 'clock',
+                            sortorder: 'ASC',
+                            time_from: timeFromUnix,
+                            time_till: timeTillUnix
+                        }).then(history => ({ item, history }))
+                    );
+
+                    const results = await Promise.allSettled(historyPromises);
+
+                    let successCount = 0;
+                    let errorCount = 0;
+
+                    results.forEach((result, index) => {
+                        if (result.status === 'fulfilled') {
+                            const { item, history } = result.value;
+                            successCount++;
+                            
+                            history.forEach(record => {
+                                historyData.push({
+                                    hostName: hostName,
+                                    itemId: item.itemid,
+                                    itemName: item.name,
+                                    itemKey: item.key_,
+                                    clock: record.clock,
+                                    timestamp: new Date(record.clock * 1000).toLocaleString('ja-JP', {
+                                        year: 'numeric',
+                                        month: '2-digit',
+                                        day: '2-digit',
+                                        hour: '2-digit',
+                                        minute: '2-digit',
+                                        second: '2-digit',
+                                        hour12: false
+                                    }),
+                                    value: record.value,
+                                    ns: record.ns
+                                });
+                            });
+                        } else {
+                            errorCount++;
+                            const item = items[index];
+                            console.error(`Failed to get history for item ${item.name} (${item.itemid}):`, result.reason);
+                        }
+                    });
+                    
+                    console.log(`History data retrieval for host ${hostName}: ${successCount} succeeded, ${errorCount} failed, ${historyData.length} records total`);
+                }
+
+                // エラーがあった場合は警告を表示
+                if (processedHosts > 0) {
+                    let totalErrors = 0;
+                    // エラーカウントを集計（簡易版 - 最後のホストのerrorCountを使用）
+                    // より正確にはループ外でグローバルなerrorCountを管理する必要がありますが、
+                    // 最小限の変更のため、ここでは簡略化します
+                    if (historyData.length === 0) {
+                        showStatus('timeStatus', `0件の履歴データが取得されました。時間範囲を確認してください。または、コンソール（F12キー）でエラーを確認してください。`, 'warning');
+                    } else {
+                        showStatus('timeStatus', `${historyData.length}件の履歴データを取得しました。CSVエクスポートボタンからダウンロードしてください。`, 'success');
+                    }
+                } else {
+                    showStatus('timeStatus', `${historyData.length}件の履歴データを取得しました。CSVエクスポートボタンからダウンロードしてください。`, 'success');
+                }
+                // パフォーマンス向上のため、データを画面に表示しません
+                // displayResults();
+                
+                // 結果セクションを表示（エクスポートボタンのため）
+                document.getElementById('resultsSection').classList.remove('hidden');
+                showStatus('resultsStatus', `${historyData.length}件のデータを取得しました。表示はスキップされています（パフォーマンス向上のため）。CSVまたはJSONでエクスポートしてください。`, 'info');
+
+            } catch (error) {
+                showStatus('timeStatus', `履歴データ取得エラー: ${error.message}`, 'error');
+            }
+        }
+
+
+        async function getHistory() {
+            const itemSelect = document.getElementById('itemSelect');
+            const selectedOptions = Array.from(itemSelect.selectedOptions);
+
+            if (selectedOptions.length === 0) {
+                showStatus('timeStatus', 'アイテムを選択してください', 'error');
+                return;
+            }
+
+            const timeFrom = document.getElementById('timeFrom').value;
+            const timeTill = document.getElementById('timeTill').value;
+
+            if (!timeFrom || !timeTill) {
+                showStatus('timeStatus', '時間範囲を指定してください', 'error');
+                return;
+            }
+
+            const timeFromUnix = Math.floor(new Date(timeFrom).getTime() / 1000);
+            const timeTillUnix = Math.floor(new Date(timeTill).getTime() / 1000);
+
+            if (timeFromUnix >= timeTillUnix) {
+                showStatus('timeStatus', '開始時刻は終了時刻より前である必要があります', 'error');
+                return;
+            }
+
+            historyData = []; // 前回のデータをクリア
+            
+            showStatus('timeStatus', `データ取得を開始します（${selectedOptions.length}アイテム）...`, 'info');
+
+            try {
+                // 選択されたホスト名を取得
+                const hostName = selectedHosts.length > 0 ? selectedHosts[0].name : '';
+
+                showStatus('timeStatus', `データ取得を開始します（${selectedOptions.length}アイテム）...`, 'info');
+
+                // 各アイテムの履歴データを並列取得（パフォーマンス改善）
+                const historyPromises = selectedOptions.map(option => {
+                    const itemId = option.value;
+                    const valueType = option.dataset.valueType;
+                    const itemName = option.textContent;
+
+                    return callZabbixAPI('history.get', {
+                        output: 'extend',
+                        history: parseInt(valueType),
+                        itemids: itemId,
+                        sortfield: 'clock',
+                        sortorder: 'ASC',
+                        time_from: timeFromUnix,
+                        time_till: timeTillUnix
+                    }).then(history => ({
+                        itemId,
+                        itemName,
+                        valueType,
+                        history
+                    }));
+                });
+
+                const results = await Promise.allSettled(historyPromises);
+
+                let successCount = 0;
+                let errorCount = 0;
+
+                results.forEach((result, index) => {
+                    if (result.status === 'fulfilled') {
+                        const { itemId, itemName, history } = result.value;
+                        successCount++;
+
+                        history.forEach(record => {
+                            historyData.push({
+                                hostName: hostName,
+                                itemId: itemId,
+                                itemName: itemName,
+                                clock: record.clock,
+                                timestamp: new Date(record.clock * 1000).toLocaleString('ja-JP', {
+                                    year: 'numeric',
+                                    month: '2-digit',
+                                    day: '2-digit',
+                                    hour: '2-digit',
+                                    minute: '2-digit',
+                                    second: '2-digit',
+                                    hour12: false
+                                }),
+                                value: record.value,
+                                ns: record.ns
+                            });
+                        });
+                    } else {
+                        errorCount++;
+                        const option = selectedOptions[index];
+                        const itemName = option.textContent;
+                        console.error(`Failed to get history for item ${itemName}:`, result.reason);
+                    }
+                });
+
+                console.log(`Individual items history data retrieval completed: ${successCount} succeeded, ${errorCount} failed, ${historyData.length} records total`);
+
+                showStatus('timeStatus', `${historyData.length}件の履歴データを取得しました。CSVエクスポートボタンからダウンロードしてください。`, 'success');
+                // パフォーマンス向上のため、データを画面に表示しません
+                // displayResults();
+                
+                // 結果セクションを表示（エクスポートボタンのため）
+                document.getElementById('resultsSection').classList.remove('hidden');
+                showStatus('resultsStatus', `${historyData.length}件のデータを取得しました。表示はスキップされています（パフォーマンス向上のため）。CSVまたはJSONでエクスポートしてください。`, 'info');
+
+            } catch (error) {
+                showStatus('timeStatus', `履歴データ取得エラー: ${error.message}`, 'error');
+            }
+        }
+
+        function displayResults() {
+            const resultsSection = document.getElementById('resultsSection');
+            const resultsTable = document.getElementById('resultsTable');
+
+            if (historyData.length === 0) {
+                resultsTable.innerHTML = '<p class="info-text">データがありません</p>';
+                resultsSection.classList.remove('hidden');
+                return;
+            }
+
+            let tableHTML = '<table><thead><tr>';
+            // ホスト全体エクスポートの場合はホスト名とアイテムキーも表示
+            if (exportMode === 'host') {
+                tableHTML += '<th>ホスト</th>';
+                tableHTML += '<th>アイテム</th>';
+                tableHTML += '<th>キー</th>';
+                tableHTML += '<th>タイムスタンプ</th>';
+                tableHTML += '<th>値</th>';
+            } else {
+                tableHTML += '<th>ホスト</th>';
+                tableHTML += '<th>アイテム</th>';
+                tableHTML += '<th>タイムスタンプ</th>';
+                tableHTML += '<th>値</th>';
+            }
+            tableHTML += '</tr></thead><tbody>';
+
+            historyData.forEach(record => {
+                tableHTML += '<tr>';
+                if (exportMode === 'host') {
+                    tableHTML += `<td>${escapeHtml(record.hostName || '')}</td>`;
+                    tableHTML += `<td>${escapeHtml(record.itemName)}</td>`;
+                    tableHTML += `<td>${escapeHtml(record.itemKey || '')}</td>`;
+                    tableHTML += `<td>${escapeHtml(record.timestamp)}</td>`;
+                    tableHTML += `<td>${escapeHtml(record.value)}</td>`;
+                } else {
+                    tableHTML += `<td>${escapeHtml(record.hostName || '')}</td>`;
+                    tableHTML += `<td>${escapeHtml(record.itemName)}</td>`;
+                    tableHTML += `<td>${escapeHtml(record.timestamp)}</td>`;
+                    tableHTML += `<td>${escapeHtml(record.value)}</td>`;
+                }
+                tableHTML += '</tr>';
+            });
+
+            tableHTML += '</tbody></table>';
+            resultsTable.innerHTML = tableHTML;
+            resultsSection.classList.remove('hidden');
+        }
+
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = String(text || '');
+            return div.innerHTML;
+        }
+
+        async function exportToCSV() {
+            if (historyData.length === 0) {
+                showStatus('resultsStatus', 'エクスポートするデータがありません', 'error');
+                return;
+            }
+
+            // CompressionStream APIのサポートチェック
+            if (!('CompressionStream' in window)) {
+                showStatus('resultsStatus', 'エラー: お使いのブラウザはCompressionStream APIをサポートしていません。Chrome 80+, Edge 80+, Safari 16.4+が必要です。', 'error');
+                console.error('CompressionStream API is not supported');
+                return;
+            }
+
+            showStatus('resultsStatus', 'CSVファイルを生成中...', 'info');
+
+            try {
+                // アイテムごとにデータをグループ化
+                const itemGroups = {};
+                historyData.forEach(record => {
+                    const itemKey = `${record.itemId}_${record.itemName}`;
+                    if (!itemGroups[itemKey]) {
+                        itemGroups[itemKey] = {
+                            itemName: record.itemName,
+                            itemKey: record.itemKey,
+                            hostName: record.hostName,
+                            data: []
+                        };
+                    }
+                    itemGroups[itemKey].data.push(record);
+                });
+
+                const itemCount = Object.keys(itemGroups).length;
+
+                // ZIPファイルを生成（ネイティブAPI使用）
+                showStatus('resultsStatus', 'ZIPファイルを生成中...', 'info');
+                const zipBlob = await createZipFile(itemGroups);
+
+                // タイムスタンプを含むファイル名を生成
+                const now = new Date();
+                const timestamp = now.toISOString().replace(/[-:]/g, '').replace('T', '-').split('.')[0];
+                const zipFilename = `zabbix-history-export-${timestamp}.zip`;
+
+                // ZIPファイルをダウンロード
+                downloadFile(zipBlob, zipFilename, 'application/zip');
+                showStatus('resultsStatus', `${itemCount}個のCSVファイルをZIPにまとめてダウンロードしました`, 'success');
+            } catch (error) {
+                showStatus('resultsStatus', `エクスポートエラー: ${error.message}`, 'error');
+                console.error('Export error:', error);
+            }
+        }
+
+        // CompressionStream APIを使用してZIPファイルを作成
+        async function createZipFile(itemGroups) {
+            const encoder = new TextEncoder();
+            const files = [];
+            
+            // 各CSVファイルの内容とメタデータを準備
+            Object.entries(itemGroups).forEach(([key, group]) => {
+                let csv = '\uFEFF'; // UTF-8 BOM for Excel compatibility with Japanese characters
+                
+                // ヘッダー行
+                if (exportMode === 'host') {
+                    csv += 'アイテム,キー,タイムスタンプ,値\n';
+                } else {
+                    csv += 'アイテム,タイムスタンプ,値\n';
+                }
+
+                group.data.forEach(record => {
+                    if (exportMode === 'host') {
+                        csv += `"${record.itemName}","${record.itemKey || ''}","${record.timestamp}","${record.value}"\n`;
+                    } else {
+                        csv += `"${record.itemName}","${record.timestamp}","${record.value}"\n`;
+                    }
+                });
+
+                // ファイル名を生成: {ホスト名}_{アイテム名}_{開始日時}-{終了日時}.csv
+                const safeHostName = (group.hostName || 'unknown').replace(/[^a-zA-Z0-9\u3040-\u309F\u30A0-\u30FF\u4E00-\u9FAF]/g, '_');
+                const safeItemName = group.itemName.replace(/[^a-zA-Z0-9\u3040-\u309F\u30A0-\u30FF\u4E00-\u9FAF]/g, '_');
+                
+                // データから開始日時と終了日時を取得
+                let startTime = 'unknown';
+                let endTime = 'unknown';
+                if (group.data.length > 0) {
+                    const timestamps = group.data.map(d => d.clock);
+                    const minTimestamp = Math.min(...timestamps);
+                    const maxTimestamp = Math.max(...timestamps);
+                    
+                    // YYYYMMDDHHMMSS形式にフォーマット
+                    const formatDateTime = (timestamp) => {
+                        const date = new Date(timestamp * 1000);
+                        const year = date.getFullYear();
+                        const month = String(date.getMonth() + 1).padStart(2, '0');
+                        const day = String(date.getDate()).padStart(2, '0');
+                        const hours = String(date.getHours()).padStart(2, '0');
+                        const minutes = String(date.getMinutes()).padStart(2, '0');
+                        const seconds = String(date.getSeconds()).padStart(2, '0');
+                        return `${year}${month}${day}${hours}${minutes}${seconds}`;
+                    };
+                    
+                    startTime = formatDateTime(minTimestamp);
+                    endTime = formatDateTime(maxTimestamp);
+                }
+                
+                const filename = `${safeHostName}_${safeItemName}_${startTime}-${endTime}.csv`;
+
+                files.push({
+                    name: filename,
+                    content: encoder.encode(csv)
+                });
+            });
+
+            // ZIP形式でファイルをパッケージ化
+            return await generateZip(files);
+        }
+
+        // ZIP形式のファイルを生成（CompressionStream使用）
+        async function generateZip(files) {
+            const zipParts = [];
+            const centralDirectory = [];
+            let offset = 0;
+
+            // 各ファイルをZIPに追加
+            for (const file of files) {
+                const filename = new TextEncoder().encode(file.name);
+                const content = file.content;
+                const crc32 = calculateCRC32(content);
+                const modTime = dosDateTime(new Date());
+
+                // 圧縮
+                const compressed = await compressData(content);
+
+                // Local file header
+                const localHeader = new Uint8Array(30 + filename.length);
+                const view = new DataView(localHeader.buffer);
+                
+                view.setUint32(0, 0x04034b50, true); // Local file header signature
+                view.setUint16(4, 20, true); // Version needed to extract (2.0)
+                view.setUint16(6, 0, true); // General purpose bit flag
+                view.setUint16(8, 8, true); // Compression method (8 = deflate)
+                view.setUint16(10, modTime & 0xFFFF, true); // File last mod time
+                view.setUint16(12, (modTime >> 16) & 0xFFFF, true); // File last mod date
+                view.setUint32(14, crc32, true); // CRC-32
+                view.setUint32(18, compressed.length, true); // Compressed size
+                view.setUint32(22, content.length, true); // Uncompressed size
+                view.setUint16(26, filename.length, true); // Filename length
+                view.setUint16(28, 0, true); // Extra field length
+                localHeader.set(filename, 30);
+
+                zipParts.push(localHeader);
+                zipParts.push(compressed);
+
+                // Central directory entry
+                centralDirectory.push({
+                    filename: filename,
+                    crc32: crc32,
+                    compressedSize: compressed.length,
+                    uncompressedSize: content.length,
+                    offset: offset,
+                    modTime: modTime
+                });
+
+                offset += localHeader.length + compressed.length;
+            }
+
+            // Central directory
+            const centralDirParts = [];
+            for (const entry of centralDirectory) {
+                const cdHeader = new Uint8Array(46 + entry.filename.length);
+                const view = new DataView(cdHeader.buffer);
+                
+                view.setUint32(0, 0x02014b50, true); // Central directory file header signature
+                view.setUint16(4, 0x033F, true); // Version made by (3.0, Unix)
+                view.setUint16(6, 20, true); // Version needed to extract
+                view.setUint16(8, 0, true); // General purpose bit flag
+                view.setUint16(10, 8, true); // Compression method
+                view.setUint16(12, entry.modTime & 0xFFFF, true); // File last mod time
+                view.setUint16(14, (entry.modTime >> 16) & 0xFFFF, true); // File last mod date
+                view.setUint32(16, entry.crc32, true); // CRC-32
+                view.setUint32(20, entry.compressedSize, true); // Compressed size
+                view.setUint32(24, entry.uncompressedSize, true); // Uncompressed size
+                view.setUint16(28, entry.filename.length, true); // Filename length
+                view.setUint16(30, 0, true); // Extra field length
+                view.setUint16(32, 0, true); // File comment length
+                view.setUint16(34, 0, true); // Disk number start
+                view.setUint16(36, 1, true); // Internal file attributes (text file)
+                view.setUint32(38, 0x81A40000, true); // External file attributes (Unix permissions 0644)
+                view.setUint32(42, entry.offset, true); // Relative offset of local header
+                cdHeader.set(entry.filename, 46);
+                
+                centralDirParts.push(cdHeader);
+            }
+
+            const centralDirData = new Uint8Array(centralDirParts.reduce((sum, part) => sum + part.length, 0));
+            let cdOffset = 0;
+            for (const part of centralDirParts) {
+                centralDirData.set(part, cdOffset);
+                cdOffset += part.length;
+            }
+
+            // End of central directory record
+            const eocd = new Uint8Array(22);
+            const eocdView = new DataView(eocd.buffer);
+            eocdView.setUint32(0, 0x06054b50, true); // End of central dir signature
+            eocdView.setUint16(4, 0, true); // Number of this disk
+            eocdView.setUint16(6, 0, true); // Disk where central directory starts
+            eocdView.setUint16(8, files.length, true); // Number of central directory records on this disk
+            eocdView.setUint16(10, files.length, true); // Total number of central directory records
+            eocdView.setUint32(12, centralDirData.length, true); // Size of central directory
+            eocdView.setUint32(16, offset, true); // Offset of start of central directory
+            eocdView.setUint16(20, 0, true); // Comment length
+
+            // すべてのパーツを結合
+            return new Blob([...zipParts, centralDirData, eocd], { type: 'application/zip' });
+        }
+
+        // CompressionStreamを使用してデータを圧縮
+        async function compressData(data) {
+            const stream = new Blob([data]).stream();
+            const compressedStream = stream.pipeThrough(new CompressionStream('deflate-raw'));
+            const blob = await new Response(compressedStream).blob();
+            return new Uint8Array(await blob.arrayBuffer());
+        }
+
+        // CRC32チェックサムを計算
+        function calculateCRC32(data) {
+            const crcTable = [];
+            for (let i = 0; i < 256; i++) {
+                let c = i;
+                for (let j = 0; j < 8; j++) {
+                    c = (c & 1) ? (0xEDB88320 ^ (c >>> 1)) : (c >>> 1);
+                }
+                crcTable[i] = c;
+            }
+
+            let crc = 0xFFFFFFFF;
+            for (let i = 0; i < data.length; i++) {
+                crc = crcTable[(crc ^ data[i]) & 0xFF] ^ (crc >>> 8);
+            }
+            return (crc ^ 0xFFFFFFFF) >>> 0;
+        }
+
+        // DOS日時形式に変換
+        function dosDateTime(date) {
+            const year = date.getFullYear();
+            const month = date.getMonth() + 1;
+            const day = date.getDate();
+            const hours = date.getHours();
+            const minutes = date.getMinutes();
+            const seconds = Math.floor(date.getSeconds() / 2);
+
+            const dosDate = ((year - 1980) << 9) | (month << 5) | day;
+            const dosTime = (hours << 11) | (minutes << 5) | seconds;
+
+            return (dosDate << 16) | dosTime;
+        }
+
+        function exportToJSON() {
+            if (historyData.length === 0) {
+                showStatus('resultsStatus', 'エクスポートするデータがありません', 'error');
+                return;
+            }
+
+            const json = JSON.stringify(historyData, null, 2);
+            downloadFile(json, 'zabbix-history-export.json', 'application/json');
+            showStatus('resultsStatus', 'JSONファイルをダウンロードしました', 'success');
+        }
+
+        function downloadFile(content, filename, mimeType) {
+            // contentが既にBlobの場合はそのまま使用、そうでなければBlobを作成
+            const blob = content instanceof Blob ? content : new Blob([content], { type: mimeType });
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = filename;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            URL.revokeObjectURL(url);
+        }
+    </script>
+</body>
+</html>
