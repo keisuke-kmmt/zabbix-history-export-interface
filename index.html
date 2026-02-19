@@ -692,7 +692,7 @@
                     <div style="display: inline-flex; align-items: center; background: #007bff; color: white; padding: 3px 8px; margin: 3px; border-radius: 3px; font-size: 14px; line-height: 1.4;">
                         <span style="margin-right: 5px;">${host.name}</span>
                         <button onclick="removeSelectedHost(${index})" 
-                                style="display: flex; align-items: center; justify-content: center; width: 20px; height: 20px; background: none; border: none; color: white; cursor: pointer; font-weight: bold; padding: 0; line-height: 1; font-size: 18px;">×</button>
+                                style="display: flex; align-items: center; justify-content: center; align-self: center; width: 20px; height: 20px; background: none; border: none; color: white; cursor: pointer; font-weight: bold; padding: 0; line-height: 1; font-size: 16px; margin-top: -1px;">×</button>
                     </div>
                 `;
             });
@@ -1039,15 +1039,15 @@
                 // 選択されたホスト名を取得
                 const hostName = selectedHosts.length > 0 ? selectedHosts[0].name : '';
 
-                for (let i = 0; i < selectedOptions.length; i++) {
-                    const option = selectedOptions[i];
+                showStatus('timeStatus', `データ取得を開始します（${selectedOptions.length}アイテム）...`, 'info');
+
+                // 各アイテムの履歴データを並列取得（パフォーマンス改善）
+                const historyPromises = selectedOptions.map(option => {
                     const itemId = option.value;
                     const valueType = option.dataset.valueType;
                     const itemName = option.textContent;
 
-                    showStatus('timeStatus', `データ取得中: ${itemName} (${i + 1}/${selectedOptions.length})...`, 'info');
-
-                    const history = await callZabbixAPI('history.get', {
+                    return callZabbixAPI('history.get', {
                         output: 'extend',
                         history: parseInt(valueType),
                         itemids: itemId,
@@ -1055,28 +1055,52 @@
                         sortorder: 'ASC',
                         time_from: timeFromUnix,
                         time_till: timeTillUnix
-                    });
+                    }).then(history => ({
+                        itemId,
+                        itemName,
+                        valueType,
+                        history
+                    }));
+                });
 
-                    history.forEach(record => {
-                        historyData.push({
-                            hostName: hostName,
-                            itemId: itemId,
-                            itemName: itemName,
-                            clock: record.clock,
-                            timestamp: new Date(record.clock * 1000).toLocaleString('ja-JP', {
-                                year: 'numeric',
-                                month: '2-digit',
-                                day: '2-digit',
-                                hour: '2-digit',
-                                minute: '2-digit',
-                                second: '2-digit',
-                                hour12: false
-                            }),
-                            value: record.value,
-                            ns: record.ns
+                const results = await Promise.allSettled(historyPromises);
+
+                let successCount = 0;
+                let errorCount = 0;
+
+                results.forEach((result, index) => {
+                    if (result.status === 'fulfilled') {
+                        const { itemId, itemName, history } = result.value;
+                        successCount++;
+
+                        history.forEach(record => {
+                            historyData.push({
+                                hostName: hostName,
+                                itemId: itemId,
+                                itemName: itemName,
+                                clock: record.clock,
+                                timestamp: new Date(record.clock * 1000).toLocaleString('ja-JP', {
+                                    year: 'numeric',
+                                    month: '2-digit',
+                                    day: '2-digit',
+                                    hour: '2-digit',
+                                    minute: '2-digit',
+                                    second: '2-digit',
+                                    hour12: false
+                                }),
+                                value: record.value,
+                                ns: record.ns
+                            });
                         });
-                    });
-                }
+                    } else {
+                        errorCount++;
+                        const option = selectedOptions[index];
+                        const itemName = option.textContent;
+                        console.error(`Failed to get history for item ${itemName}:`, result.reason);
+                    }
+                });
+
+                console.log(`Individual items history data retrieval completed: ${successCount} succeeded, ${errorCount} failed, ${historyData.length} records total`);
 
                 showStatus('timeStatus', `${historyData.length}件の履歴データを取得しました。CSVエクスポートボタンからダウンロードしてください。`, 'success');
                 // パフォーマンス向上のため、データを画面に表示しません
