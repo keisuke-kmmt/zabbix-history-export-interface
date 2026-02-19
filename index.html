@@ -420,6 +420,22 @@
             }
         }
 
+        // チャンク処理用のヘルパー関数
+        // 配列を指定されたサイズのチャンクに分割し、各チャンクを順次処理します
+        async function processInChunks(items, processFunc, chunkSize = 5) {
+            const results = [];
+            
+            for (let i = 0; i < items.length; i += chunkSize) {
+                const chunk = items.slice(i, i + chunkSize);
+                const chunkResults = await Promise.allSettled(
+                    chunk.map(item => processFunc(item))
+                );
+                results.push(...chunkResults);
+            }
+            
+            return results;
+        }
+
         // URLを正規化（/api_jsonrpc.phpを自動追加）
         function normalizeZabbixUrl(url) {
             if (!url) return url;
@@ -940,9 +956,10 @@
 
                     showStatus('timeStatus', `ホスト ${hostName}: ${items.length}個のアイテムのデータを取得中...`, 'info');
 
-                    // 各アイテムの履歴データを並列取得（パフォーマンス改善）
-                    const historyPromises = items.map(item => 
-                        callZabbixAPI('history.get', {
+                    // 各アイテムの履歴データをチャンク処理で順次取得（APIリクエストの並列実行を制限）
+                    const results = await processInChunks(
+                        items,
+                        item => callZabbixAPI('history.get', {
                             output: 'extend',
                             history: parseInt(item.value_type),
                             itemids: item.itemid,
@@ -950,10 +967,9 @@
                             sortorder: 'ASC',
                             time_from: timeFromUnix,
                             time_till: timeTillUnix
-                        }).then(history => ({ item, history }))
+                        }).then(history => ({ item, history })),
+                        5 // 5アイテムずつ処理
                     );
-
-                    const results = await Promise.allSettled(historyPromises);
 
                     let successCount = 0;
                     let errorCount = 0;
@@ -1055,29 +1071,31 @@
 
                 showStatus('timeStatus', `データ取得を開始します（${selectedOptions.length}アイテム）...`, 'info');
 
-                // 各アイテムの履歴データを並列取得（パフォーマンス改善）
-                const historyPromises = selectedOptions.map(option => {
-                    const itemId = option.value;
-                    const valueType = option.dataset.valueType;
-                    const itemName = option.textContent;
+                // 各アイテムの履歴データをチャンク処理で順次取得（APIリクエストの並列実行を制限）
+                const results = await processInChunks(
+                    Array.from(selectedOptions),
+                    option => {
+                        const itemId = option.value;
+                        const valueType = option.dataset.valueType;
+                        const itemName = option.textContent;
 
-                    return callZabbixAPI('history.get', {
-                        output: 'extend',
-                        history: parseInt(valueType),
-                        itemids: itemId,
-                        sortfield: 'clock',
-                        sortorder: 'ASC',
-                        time_from: timeFromUnix,
-                        time_till: timeTillUnix
-                    }).then(history => ({
-                        itemId,
-                        itemName,
-                        valueType,
-                        history
-                    }));
-                });
-
-                const results = await Promise.allSettled(historyPromises);
+                        return callZabbixAPI('history.get', {
+                            output: 'extend',
+                            history: parseInt(valueType),
+                            itemids: itemId,
+                            sortfield: 'clock',
+                            sortorder: 'ASC',
+                            time_from: timeFromUnix,
+                            time_till: timeTillUnix
+                        }).then(history => ({
+                            itemId,
+                            itemName,
+                            valueType,
+                            history
+                        }));
+                    },
+                    5 // 5アイテムずつ処理
+                );
 
                 let successCount = 0;
                 let errorCount = 0;
