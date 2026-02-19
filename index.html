@@ -277,7 +277,7 @@
     <div class="container">
         <header>
             <h1>📊 Zabbix履歴データエクスポート</h1>
-            <p>Zabbix APIを使用してヒストリーデータをエクスポート</p>
+            <p>Zabbix APIを使用してヒストリーデータをエクスポートします。</p>
         </header>
 
         <div class="content">
@@ -308,8 +308,8 @@
                 <div class="form-group">
                     <label for="exportMode">エクスポートモード:</label>
                     <select id="exportMode" onchange="changeExportMode()">
-                        <option value="item">個別アイテム選択</option>
                         <option value="host">ホスト全体エクスポート</option>
+                        <option value="item">個別アイテム選択</option>
                     </select>
                     <div class="info-text">個別: 特定のアイテムを選択 / ホスト全体: すべてのアイテムをエクスポート</div>
                 </div>
@@ -341,7 +341,7 @@
                     <select id="itemSelect" multiple>
                         <option value="">アイテムを選択してください</option>
                     </select>
-                    <div class="info-text">Ctrlキー(またはCmd)を押しながらクリックで複数選択</div>
+                    <div class="info-text">Ctrlキー、Shiftキーを押しながらクリックで複数選択</div>
                 </div>
                 <div id="itemStatus" class="status"></div>
             </div>
@@ -1121,17 +1121,17 @@
                     if (historyData.length === 0) {
                         showStatus('timeStatus', `0件の履歴データが取得されました。時間範囲を確認してください。または、コンソール（F12キー）でエラーを確認してください。`, 'warning');
                     } else {
-                        showStatus('timeStatus', `${historyData.length}件の履歴データを取得しました。CSVエクスポートボタンからダウンロードしてください。`, 'success');
+                        showStatus('timeStatus', `${historyData.length}件の履歴データを取得しました。エクスポートボタンからダウンロードしてください。`, 'success');
                     }
                 } else {
-                    showStatus('timeStatus', `${historyData.length}件の履歴データを取得しました。CSVエクスポートボタンからダウンロードしてください。`, 'success');
+                    showStatus('timeStatus', `${historyData.length}件の履歴データを取得しました。エクスポートボタンからダウンロードしてください。`, 'success');
                 }
                 // パフォーマンス向上のため、データを画面に表示しません
                 // displayResults();
                 
                 // 結果セクションを表示（エクスポートボタンのため）
                 document.getElementById('resultsSection').classList.remove('hidden');
-                showStatus('resultsStatus', `${historyData.length}件のデータを取得しました。表示はスキップされています（パフォーマンス向上のため）。CSVまたはJSONでエクスポートしてください。`, 'info');
+                showStatus('resultsStatus', `${historyData.length}件のデータを取得しました。CSVまたはJSONでエクスポートしてください。`, 'info');
 
             } catch (error) {
                 showStatus('timeStatus', `履歴データ取得エラー: ${error.message}`, 'error');
@@ -1236,13 +1236,13 @@
 
                 console.log(`Individual items history data retrieval completed: ${successCount} succeeded, ${errorCount} failed, ${historyData.length} records total`);
 
-                showStatus('timeStatus', `${historyData.length}件の履歴データを取得しました。CSVエクスポートボタンからダウンロードしてください。`, 'success');
+                showStatus('timeStatus', `${historyData.length}件の履歴データを取得しました。エクスポートボタンからダウンロードしてください。`, 'success');
                 // パフォーマンス向上のため、データを画面に表示しません
                 // displayResults();
                 
                 // 結果セクションを表示（エクスポートボタンのため）
                 document.getElementById('resultsSection').classList.remove('hidden');
-                showStatus('resultsStatus', `${historyData.length}件のデータを取得しました。表示はスキップされています（パフォーマンス向上のため）。CSVまたはJSONでエクスポートしてください。`, 'info');
+                showStatus('resultsStatus', `${historyData.length}件のデータを取得しました。CSVまたはJSONでエクスポートしてください。`, 'info');
 
             } catch (error) {
                 showStatus('timeStatus', `履歴データ取得エラー: ${error.message}`, 'error');
