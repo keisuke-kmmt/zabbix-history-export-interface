@@ -351,6 +351,7 @@
         let currentItems = [];
         let apiRequestCounter = 0;
         let exportMode = 'item'; // 'item' または 'host'
+        let isHostSearchSetup = false; // ホスト検索のセットアップフラグ
 
         // Initialize datetime inputs with default values (last 24 hours)
         window.onload = function() {
@@ -584,23 +585,6 @@
             
             dropdown.innerHTML = html;
             dropdown.style.display = 'block';
-            
-            // クリックイベントを追加
-            dropdown.querySelectorAll('.host-search-item').forEach(item => {
-                item.addEventListener('click', function() {
-                    const displayName = this.getAttribute('data-displayname');
-                    selectHostFromDropdown(displayName);
-                });
-                
-                item.addEventListener('mouseenter', function() {
-                    // 他のホバー状態を解除
-                    dropdown.querySelectorAll('.host-search-item').forEach(i => {
-                        i.style.background = '';
-                    });
-                    this.style.background = '#e3f2fd';
-                    selectedDropdownIndex = parseInt(this.getAttribute('data-index'));
-                });
-            });
         }
         
         function hideHostDropdown() {
@@ -720,8 +704,35 @@
         // リアルタイム検索のセットアップ
         let searchTimeout;
         function setupHostSearch() {
+            if (isHostSearchSetup) {
+                return; // 既にセットアップ済みの場合はスキップ
+            }
+            isHostSearchSetup = true;
+            
             const searchInput = document.getElementById('hostSearchInput');
             const dropdown = document.getElementById('hostSearchDropdown');
+            
+            // イベント委譲: ドロップダウンのクリックイベント（1回だけ追加）
+            dropdown.addEventListener('click', function(e) {
+                const item = e.target.closest('.host-search-item');
+                if (item) {
+                    const displayName = item.getAttribute('data-displayname');
+                    selectHostFromDropdown(displayName);
+                }
+            });
+            
+            // イベント委譲: ドロップダウンのホバーイベント（1回だけ追加）
+            dropdown.addEventListener('mouseenter', function(e) {
+                const item = e.target.closest('.host-search-item');
+                if (item) {
+                    // 他のホバー状態を解除
+                    dropdown.querySelectorAll('.host-search-item').forEach(i => {
+                        i.style.background = '';
+                    });
+                    item.style.background = '#e3f2fd';
+                    selectedDropdownIndex = parseInt(item.getAttribute('data-index'));
+                }
+            }, true); // キャプチャフェーズで処理
             
             searchInput.addEventListener('input', async function(e) {
                 const query = e.target.value.trim();
@@ -876,6 +887,8 @@
         }
 
         async function getHostHistory() {
+            historyData = []; // 前回のデータをクリア
+            
             if (selectedHosts.length === 0) {
                 showStatus('timeStatus', 'ホストを選択してください', 'error');
                 return;
@@ -1032,8 +1045,9 @@
                 return;
             }
 
+            historyData = []; // 前回のデータをクリア
+            
             showStatus('timeStatus', `データ取得を開始します（${selectedOptions.length}アイテム）...`, 'info');
-            historyData = [];
 
             try {
                 // 選択されたホスト名を取得
