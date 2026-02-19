@@ -927,15 +927,9 @@
 
                     showStatus('timeStatus', `ホスト ${hostName}: ${items.length}個のアイテムのデータを取得中...`, 'info');
 
-                    // 各アイテムの履歴データを順次取得（進捗表示のため）
-                    for (let i = 0; i < items.length; i++) {
-                        const item = items[i];
-                        
-                        showStatus('timeStatus', 
-                            `ホスト ${hostName}: ${item.name} のデータ取得中 (${i + 1}/${items.length})...`, 
-                            'info');
-                        
-                        const history = await callZabbixAPI('history.get', {
+                    // 各アイテムの履歴データを並列取得（パフォーマンス改善）
+                    const historyPromises = items.map(item => 
+                        callZabbixAPI('history.get', {
                             output: 'extend',
                             history: parseInt(item.value_type),
                             itemids: item.itemid,
@@ -943,8 +937,12 @@
                             sortorder: 'ASC',
                             time_from: timeFromUnix,
                             time_till: timeTillUnix
-                        });
-                        
+                        }).then(history => ({ item, history }))
+                    );
+
+                    const results = await Promise.all(historyPromises);
+
+                    results.forEach(({ item, history }) => {
                         history.forEach(record => {
                             historyData.push({
                                 hostName: hostName,
@@ -965,7 +963,7 @@
                                 ns: record.ns
                             });
                         });
-                    }
+                    });
                 }
 
                 showStatus('timeStatus', `${historyData.length}件の履歴データを取得しました。CSVエクスポートボタンからダウンロードしてください。`, 'success');
