@@ -1263,7 +1263,8 @@
         async function createZipFile(itemGroups) {
             const encoder = new TextEncoder();
             const files = [];
-            let allTimestamps = [];
+            let minTimestamp = Infinity;
+            let maxTimestamp = -Infinity;
             
             // 各CSVファイルの内容とメタデータを準備
             Object.entries(itemGroups).forEach(([key, group]) => {
@@ -1293,11 +1294,12 @@
                 let endTime = 'unknown';
                 if (group.data.length > 0) {
                     const timestamps = group.data.map(d => d.clock);
-                    // 全体のタイムスタンプ配列に追加
-                    allTimestamps = allTimestamps.concat(timestamps);
+                    const groupMinTimestamp = Math.min(...timestamps);
+                    const groupMaxTimestamp = Math.max(...timestamps);
                     
-                    const minTimestamp = Math.min(...timestamps);
-                    const maxTimestamp = Math.max(...timestamps);
+                    // 全体の最小・最大タイムスタンプを更新
+                    if (groupMinTimestamp < minTimestamp) minTimestamp = groupMinTimestamp;
+                    if (groupMaxTimestamp > maxTimestamp) maxTimestamp = groupMaxTimestamp;
                     
                     // YYYYMMDDHHMMSS形式にフォーマット
                     const formatDateTime = (timestamp) => {
@@ -1311,8 +1313,8 @@
                         return `${year}${month}${day}${hours}${minutes}${seconds}`;
                     };
                     
-                    startTime = formatDateTime(minTimestamp);
-                    endTime = formatDateTime(maxTimestamp);
+                    startTime = formatDateTime(groupMinTimestamp);
+                    endTime = formatDateTime(groupMaxTimestamp);
                 }
                 
                 const filename = `${safeHostName}_${safeItemName}_${startTime}-${endTime}.csv`;
@@ -1326,10 +1328,7 @@
             // 全データの開始日時と終了日時を計算
             let overallStartTime = 'unknown';
             let overallEndTime = 'unknown';
-            if (allTimestamps.length > 0) {
-                const minTimestamp = Math.min(...allTimestamps);
-                const maxTimestamp = Math.max(...allTimestamps);
-                
+            if (minTimestamp !== Infinity && maxTimestamp !== -Infinity) {
                 const formatDateTime = (timestamp) => {
                     const date = new Date(timestamp * 1000);
                     const year = date.getFullYear();
