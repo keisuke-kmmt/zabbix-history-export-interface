@@ -689,10 +689,10 @@
             let html = '<div style="margin-bottom: 5px;"><strong>選択されたホスト:</strong></div>';
             selectedHosts.forEach((host, index) => {
                 html += `
-                    <div style="display: inline-block; background: #007bff; color: white; padding: 5px 10px; margin: 3px; border-radius: 3px;">
-                        ${host.name}
+                    <div style="display: inline-flex; align-items: center; background: #007bff; color: white; padding: 3px 8px; margin: 3px; border-radius: 3px; font-size: 14px; line-height: 1.4;">
+                        <span style="margin-right: 5px;">${host.name}</span>
                         <button onclick="removeSelectedHost(${index})" 
-                                style="background: none; border: none; color: white; cursor: pointer; font-weight: bold; margin-left: 5px;">×</button>
+                                style="background: none; border: none; color: white; cursor: pointer; font-weight: bold; padding: 0; line-height: 1; font-size: 18px;">×</button>
                     </div>
                 `;
             });
