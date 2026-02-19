@@ -1248,16 +1248,8 @@
                 const { zipBlob, filenames } = await createZipFile(itemGroups);
 
                 // CSVファイル名に基づいてZIPファイル名を生成
-                let zipFilename;
-                if (filenames.length === 1) {
-                    // 単一のCSVファイルの場合、そのファイル名を使用（.csvを.zipに変更）
-                    zipFilename = filenames[0].replace(/\.csv$/, '.zip');
-                } else {
-                    // 複数のCSVファイルの場合、最初のファイル名をベースにする
-                    // ファイル名から {hostname}_{itemname}_{timestamp}.zip の形式を抽出
-                    const firstFilename = filenames[0].replace(/\.csv$/, '');
-                    zipFilename = `${firstFilename}.zip`;
-                }
+                // 最初のCSVファイル名を使用（.csvを.zipに変更）
+                const zipFilename = filenames[0].replace(/\.csv$/, '.zip');
 
                 // ZIPファイルをダウンロード
                 downloadFile(zipBlob, zipFilename, 'application/zip');
