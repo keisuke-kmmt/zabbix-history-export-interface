@@ -1,0 +1,25 @@
+# ログファイル
+*.log
+server.log
+
+# 一時ファイル
+*.tmp
+*.temp
+
+# OSファイル
+.DS_Store
+Thumbs.db
+
+# エディタファイル
+*.swp
+*.swo
+*~
+.vscode/
+.idea/
+
+# Node modules
+node_modules/
+
+# 依存関係
+dist/
+build/
