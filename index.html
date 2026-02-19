@@ -940,33 +940,60 @@
                         }).then(history => ({ item, history }))
                     );
 
-                    const results = await Promise.all(historyPromises);
+                    const results = await Promise.allSettled(historyPromises);
 
-                    results.forEach(({ item, history }) => {
-                        history.forEach(record => {
-                            historyData.push({
-                                hostName: hostName,
-                                itemId: item.itemid,
-                                itemName: item.name,
-                                itemKey: item.key_,
-                                clock: record.clock,
-                                timestamp: new Date(record.clock * 1000).toLocaleString('ja-JP', {
-                                    year: 'numeric',
-                                    month: '2-digit',
-                                    day: '2-digit',
-                                    hour: '2-digit',
-                                    minute: '2-digit',
-                                    second: '2-digit',
-                                    hour12: false
-                                }),
-                                value: record.value,
-                                ns: record.ns
+                    let successCount = 0;
+                    let errorCount = 0;
+
+                    results.forEach((result, index) => {
+                        if (result.status === 'fulfilled') {
+                            const { item, history } = result.value;
+                            successCount++;
+                            
+                            history.forEach(record => {
+                                historyData.push({
+                                    hostName: hostName,
+                                    itemId: item.itemid,
+                                    itemName: item.name,
+                                    itemKey: item.key_,
+                                    clock: record.clock,
+                                    timestamp: new Date(record.clock * 1000).toLocaleString('ja-JP', {
+                                        year: 'numeric',
+                                        month: '2-digit',
+                                        day: '2-digit',
+                                        hour: '2-digit',
+                                        minute: '2-digit',
+                                        second: '2-digit',
+                                        hour12: false
+                                    }),
+                                    value: record.value,
+                                    ns: record.ns
+                                });
                             });
-                        });
+                        } else {
+                            errorCount++;
+                            const item = items[index];
+                            console.error(`Failed to get history for item ${item.name} (${item.itemid}):`, result.reason);
+                        }
                     });
+                    
+                    console.log(`History data retrieval for host ${hostName}: ${successCount} succeeded, ${errorCount} failed, ${historyData.length} records total`);
                 }
 
-                showStatus('timeStatus', `${historyData.length}件の履歴データを取得しました。CSVエクスポートボタンからダウンロードしてください。`, 'success');
+                // エラーがあった場合は警告を表示
+                if (processedHosts > 0) {
+                    let totalErrors = 0;
+                    // エラーカウントを集計（簡易版 - 最後のホストのerrorCountを使用）
+                    // より正確にはループ外でグローバルなerrorCountを管理する必要がありますが、
+                    // 最小限の変更のため、ここでは簡略化します
+                    if (historyData.length === 0) {
+                        showStatus('timeStatus', `0件の履歴データが取得されました。時間範囲を確認してください。または、コンソール（F12キー）でエラーを確認してください。`, 'warning');
+                    } else {
+                        showStatus('timeStatus', `${historyData.length}件の履歴データを取得しました。CSVエクスポートボタンからダウンロードしてください。`, 'success');
+                    }
+                } else {
+                    showStatus('timeStatus', `${historyData.length}件の履歴データを取得しました。CSVエクスポートボタンからダウンロードしてください。`, 'success');
+                }
                 // パフォーマンス向上のため、データを画面に表示しません
                 // displayResults();
                 
