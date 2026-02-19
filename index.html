@@ -219,6 +219,37 @@
             flex-wrap: wrap;
         }
 
+        .quick-date-buttons {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+            margin-bottom: 15px;
+        }
+
+        .quick-date-btn {
+            background: white;
+            color: #667eea;
+            border: 2px solid #667eea;
+            padding: 8px 16px;
+            border-radius: 5px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+            margin: 0;
+        }
+
+        .quick-date-btn:hover {
+            background: #667eea;
+            color: white;
+            transform: translateY(-1px);
+            box-shadow: 0 3px 10px rgba(102, 126, 234, 0.3);
+        }
+
+        .quick-date-btn:active {
+            transform: translateY(0);
+        }
+
         @media (max-width: 768px) {
             .content {
                 padding: 15px;
@@ -316,6 +347,15 @@
             <div id="timeSection" class="section hidden">
                 <h2>4. 時間範囲選択</h2>
                 <div class="form-group">
+                    <label>クイック選択:</label>
+                    <div class="quick-date-buttons">
+                        <button class="quick-date-btn" onclick="setDateRange('today')">当日分</button>
+                        <button class="quick-date-btn" onclick="setDateRange('yesterday')">昨日分</button>
+                        <button class="quick-date-btn" onclick="setDateRange('lastMonth')">過去一か月分</button>
+                        <button class="quick-date-btn" onclick="setDateRange('previousMonth')">前月分</button>
+                    </div>
+                </div>
+                <div class="form-group">
                     <label for="timeFrom">開始時刻:</label>
                     <input type="datetime-local" id="timeFrom">
                 </div>
@@ -372,6 +412,51 @@
             const hours = String(date.getHours()).padStart(2, '0');
             const minutes = String(date.getMinutes()).padStart(2, '0');
             return `${year}-${month}-${day}T${hours}:${minutes}`;
+        }
+
+        function setDateRange(rangeType) {
+            const now = new Date();
+            let fromDate, tillDate;
+
+            switch(rangeType) {
+                case 'today':
+                    // 当日分: 今日の00:00から現在まで
+                    fromDate = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0);
+                    tillDate = now;
+                    break;
+                    
+                case 'yesterday':
+                    // 昨日分: 昨日の00:00から23:59まで
+                    const yesterday = new Date(now);
+                    yesterday.setDate(yesterday.getDate() - 1);
+                    fromDate = new Date(yesterday.getFullYear(), yesterday.getMonth(), yesterday.getDate(), 0, 0, 0);
+                    tillDate = new Date(yesterday.getFullYear(), yesterday.getMonth(), yesterday.getDate(), 23, 59, 59);
+                    break;
+                    
+                case 'lastMonth':
+                    // 過去一か月分: ちょうど30日前から現在まで
+                    fromDate = new Date(now);
+                    fromDate.setDate(fromDate.getDate() - 30);
+                    tillDate = now;
+                    break;
+                    
+                case 'previousMonth':
+                    // 前月分: 前月の1日00:00から前月の最終日23:59まで
+                    const firstDayOfCurrentMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+                    const lastDayOfPreviousMonth = new Date(firstDayOfCurrentMonth);
+                    lastDayOfPreviousMonth.setDate(0); // 前月の最終日
+                    const firstDayOfPreviousMonth = new Date(lastDayOfPreviousMonth.getFullYear(), lastDayOfPreviousMonth.getMonth(), 1);
+                    
+                    fromDate = new Date(firstDayOfPreviousMonth.getFullYear(), firstDayOfPreviousMonth.getMonth(), firstDayOfPreviousMonth.getDate(), 0, 0, 0);
+                    tillDate = new Date(lastDayOfPreviousMonth.getFullYear(), lastDayOfPreviousMonth.getMonth(), lastDayOfPreviousMonth.getDate(), 23, 59, 59);
+                    break;
+                    
+                default:
+                    return;
+            }
+
+            document.getElementById('timeFrom').value = formatDateTimeLocal(fromDate);
+            document.getElementById('timeTill').value = formatDateTimeLocal(tillDate);
         }
 
         function showStatus(elementId, message, type) {
