@@ -352,6 +352,9 @@
         let apiRequestCounter = 0;
         let exportMode = 'item'; // 'item' または 'host'
         let isHostSearchSetup = false; // ホスト検索のセットアップフラグ
+        
+        // APIリクエストのチャンクサイズ（一度に並列実行する最大リクエスト数）
+        const API_CHUNK_SIZE = 5;
 
         // Initialize datetime inputs with default values (last 24 hours)
         window.onload = function() {
@@ -420,9 +423,17 @@
             }
         }
 
-        // チャンク処理用のヘルパー関数
-        // 配列を指定されたサイズのチャンクに分割し、各チャンクを順次処理します
-        async function processInChunks(items, processFunc, chunkSize = 5) {
+        /**
+         * チャンク処理用のヘルパー関数
+         * 配列を指定されたサイズのチャンクに分割し、各チャンクを順次処理します。
+         * これにより、APIリクエストが同時に並列実行されることを防ぎます。
+         * 
+         * @param {Array} items - 処理する項目の配列
+         * @param {Function} processFunc - 各項目に適用する非同期処理関数
+         * @param {number} chunkSize - 一度に処理する項目数（デフォルト: 5）
+         * @returns {Promise<Array>} Promise.allSettledと同じ形式の結果配列
+         */
+        async function processInChunks(items, processFunc, chunkSize = API_CHUNK_SIZE) {
             const results = [];
             
             for (let i = 0; i < items.length; i += chunkSize) {
@@ -967,8 +978,7 @@
                             sortorder: 'ASC',
                             time_from: timeFromUnix,
                             time_till: timeTillUnix
-                        }).then(history => ({ item, history })),
-                        5 // 5アイテムずつ処理
+                        }).then(history => ({ item, history }))
                     );
 
                     let successCount = 0;
@@ -1093,8 +1103,7 @@
                             valueType,
                             history
                         }));
-                    },
-                    5 // 5アイテムずつ処理
+                    }
                 );
 
                 let successCount = 0;
