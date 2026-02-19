@@ -403,6 +403,11 @@
             
             document.getElementById('timeTill').value = formatDateTimeLocal(now);
             document.getElementById('timeFrom').value = formatDateTimeLocal(yesterday);
+            
+            // Initialize Zabbix URL with current domain/IP + /zabbix
+            const urlObj = new URL(window.location.href);
+            const baseUrl = `${urlObj.protocol}//${urlObj.host}/zabbix`;
+            document.getElementById('zabbixUrl').value = baseUrl;
         };
 
         function formatDateTimeLocal(date) {
