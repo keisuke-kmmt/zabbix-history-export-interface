@@ -1295,6 +1295,18 @@
             return div.innerHTML;
         }
 
+        // CSV形式のフィールドエスケープ関数（RFC 4180準拠）
+        function escapeCsv(text) {
+            const str = String(text || '');
+            // フィールドにカンマ、ダブルクォート、改行が含まれている場合はエスケープが必要
+            if (str.includes(',') || str.includes('"') || str.includes('\n') || str.includes('\r')) {
+                // ダブルクォートを2つに置換してから、全体をダブルクォートで囲む
+                return '"' + str.replace(/"/g, '""') + '"';
+            }
+            // エスケープが不要な場合は、そのままダブルクォートで囲む
+            return '"' + str + '"';
+        }
+
         async function exportToCSV() {
             if (historyData.length === 0) {
                 showStatus('resultsStatus', 'エクスポートするデータがありません', 'error');
@@ -1364,9 +1376,9 @@
 
                 group.data.forEach(record => {
                     if (exportMode === 'host') {
-                        csv += `"${record.itemName}","${record.itemKey || ''}","${record.timestamp}","${record.value}"\n`;
+                        csv += `${escapeCsv(record.itemName)},${escapeCsv(record.itemKey || '')},${escapeCsv(record.timestamp)},${escapeCsv(record.value)}\n`;
                     } else {
-                        csv += `"${record.itemName}","${record.timestamp}","${record.value}"\n`;
+                        csv += `${escapeCsv(record.itemName)},${escapeCsv(record.timestamp)},${escapeCsv(record.value)}\n`;
                     }
                 });
 
