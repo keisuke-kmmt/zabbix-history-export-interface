@@ -1020,7 +1020,7 @@
             }
 
             const timeFromUnix = Math.floor(new Date(timeFrom).getTime() / 1000);
-            const timeTillUnix = Math.floor(new Date(timeTill).getTime() / 1000);
+            const timeTillUnix = Math.floor(new Date(timeTill).getTime() / 1000) + 59;
 
             if (timeFromUnix >= timeTillUnix) {
                 showStatus('timeStatus', '開始時刻は終了時刻より前である必要があります', 'error');
@@ -1154,7 +1154,7 @@
             }
 
             const timeFromUnix = Math.floor(new Date(timeFrom).getTime() / 1000);
-            const timeTillUnix = Math.floor(new Date(timeTill).getTime() / 1000);
+            const timeTillUnix = Math.floor(new Date(timeTill).getTime() / 1000) + 59;
 
             if (timeFromUnix >= timeTillUnix) {
                 showStatus('timeStatus', '開始時刻は終了時刻より前である必要があります', 'error');
