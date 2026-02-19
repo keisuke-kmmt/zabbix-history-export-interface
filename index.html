@@ -593,6 +593,7 @@
 
                 // Show next sections
                 document.getElementById('hostSection').classList.remove('hidden');
+                changeExportMode();
                 
                 // ホストは検索ベースなので、ここではロードしない
                 showStatus('hostStatus', 'ホスト検索の準備ができました。ホスト名を入力して検索してください。', 'success');
